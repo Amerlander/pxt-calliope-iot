@@ -119,3 +119,19 @@ explain.
 failure seen so far is the DAPLink (overflow, or its serial bridge or drive hanging). The control run
 (`TXMODE=ring` under WLAN, does this test see the soak bug at all?) is still open: the DAPLink hung again
 while flashing it.
+
+**Control run, old TX path (`usb-wifi.ts`, `TXMODE=ring`, 10 min WLAN, 2026-10-13 23:29):** 138 775 lines,
+342/342 posts confirmed, and **one corruption inside the stream**:
+`U124172:…:2972\rmnopqrstuvwxyz012345:53179` — the `\n` and the first 20 characters of line 124173 are gone,
+about the size of the 20-byte USB TX ring. That is the signature of the shared `TX_EMPTY` event: the USB
+writer woke on the module port's event and overwrote bytes it had not sent yet. (A second gap of 220 lines
+carries the DAPLink overflow marker and is host-side.)
+
+| 10 min, real WLAN traffic | lines | corrupt inside a line | host-side gaps |
+|---|---|---|---|
+| old TX path (ring) | 138 775 | **1** (≈21 bytes lost) | 1 (overflow) |
+| DMA path (fix) | 138 536 | **0** | 1 (overflow) |
+
+One event against none in one run each is thin on its own; with the repeatedly damaged status lines of the
+soak (§6) it fits. **Status: fix in place, #20 closed.** Also found on the way: `usbcheck.py` now survives a
+USB serial port that re-enumerates mid-run (the first control attempt crashed on that).
