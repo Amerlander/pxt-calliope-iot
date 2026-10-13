@@ -1,0 +1,15 @@
+{
+    "name": "iotwlantest",
+    "version": "0.0.1",
+    "description": "HIL snapshot of the TS AT engine (copied from the repo root; not the extension)",
+    "dependencies": {
+        "core": "*"
+    },
+    "files": [
+        "wlanport.ts",
+        "wlanat.ts"
+    ],
+    "supportedTargets": [
+        "calliopemini"
+    ]
+}

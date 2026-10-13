@@ -1,0 +1,37 @@
+{
+    "name": "iot",
+    "version": "0.1.0",
+    "description": "IoT for Calliope mini: send and receive data with a Calliope Campus dashboard over WiFi, USB, BLE and in the simulator",
+    "license": "MIT",
+    "dependencies": {
+        "core": "*"
+    },
+    "files": [
+        "README.md",
+        "wlanat.h",
+        "wlanat.cpp",
+        "wlanport.cpp",
+        "wlanshims.ts",
+        "iotdap.ts",
+        "iotdap.cpp",
+        "iottypes.ts",
+        "wlanclient.ts",
+        "iotcore.ts",
+        "iotcampus.ts",
+        "iotsim.ts",
+        "iot.ts",
+        "_locales/de/iot-strings.json"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "public": true,
+    "targetVersions": {
+        "target": "7.0.3",
+        "targetId": "calliopemini"
+    },
+    "supportedTargets": [
+        "calliopemini"
+    ],
+    "preferredEditor": "tsprj"
+}

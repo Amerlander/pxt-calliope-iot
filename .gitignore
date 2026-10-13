@@ -1,0 +1,13 @@
+built/
+node_modules/
+pxt_modules/
+yotta_modules/
+yotta_targets/
+pxt-deps.d.ts
+pxt-shims.d.ts
+_site/
+tools/unit/node_modules/
+tools/hil/.work/
+tools/hil/secret.json
+__pycache__/
+tools/editor/.work/

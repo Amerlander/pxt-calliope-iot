@@ -1,0 +1,15 @@
+{
+    "name": "uarte1spike",
+    "version": "0.0.1",
+    "description": "Spike: a second hardware UART (UARTE1) on the Calliope mini 3 for the WiFi module",
+    "dependencies": {
+        "core": "*"
+    },
+    "files": [
+        "spike.cpp",
+        "spike.ts"
+    ],
+    "supportedTargets": [
+        "calliopemini"
+    ]
+}

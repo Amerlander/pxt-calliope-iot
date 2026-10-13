@@ -1,0 +1,13 @@
+{
+  "name": "iot-unit-tests",
+  "private": true,
+  "description": "Node unit tests for the device-independent parts of the iot extension (AT engine, parsers)",
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "test:cpp": "sh cpp/run.sh"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}
