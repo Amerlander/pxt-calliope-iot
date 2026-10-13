@@ -22,7 +22,7 @@ on them instead.
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_send` | `iot.send(feed, value, to?)` | `send $feed = $value \|\| to $to` | `sende $feed = $value \|\| an $to` | Queued, sent in the interval. `to`: shadow `iot_target` (all / dashboard) or a device id. |
+| `iot_send` | `iot.send(feed, value, to?)` | `send $feed = $value \|\| to $to` | `sende $feed = $value \|\| an $to` | Queued, sent in the interval. `to`: shadow `iot_target` (all / dashboard) or a device id. The same feed to the same receiver at most every 250 ms: called sooner, the block waits for the rest (a forever loop without a pause otherwise queued ~50 values/s while ~8/s leave over WiFi). Different feeds never wait for each other. Same rule for `send text`. |
 | `iot_send_text` | `iot.sendText(feed, text, to?)` | `send text $feed = $text \|\| to $to` | `sende Text $feed = $text \|\| an $to` | Text capped at 160 bytes. |
 | `iot_send_now` | `iot.sendNow()` | `send now` | `sende jetzt` | Flush without waiting for the interval (still ≥ 1 s on WLAN). |
 | `iot_on_sent` | `iot.onSent(feed, handler(feed, value, to))` | `on $feed sent` | `wenn $feed gesendet` | Fires only after the server confirmed. Empty feed = every feed (the feed field starts empty). |

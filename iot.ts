@@ -178,8 +178,39 @@ namespace iot {
 
     // ---- Send ------------------------------------------------------------
 
+    // The same feed to the same receiver goes at most every SAME_FEED_GAP_MS:
+    // a send block called again sooner waits for the rest. Over WiFi about 8
+    // values per second leave (one batch of 8 per ~1.1 s); a forever loop
+    // without a pause queues ~50 per second, and what the buffer cannot hold is
+    // dropped anyway. 250 ms means 4 per feed per second, so two feeds in such
+    // a loop fill exactly what goes out. Different feeds never wait for each
+    // other: "send temperature, send light" in a row is meant that way.
+    const SAME_FEED_GAP_MS = 250
+    const PACE_SLOTS = 16
+    let paceKeys: string[] = []
+    let paceTimes: number[] = []
+
+    function pace(feed: string, to: string): void {
+        const key = feed + "\n" + (to ? to : "")
+        const i = paceKeys.indexOf(key)
+        if (i < 0) {
+            if (paceKeys.length >= PACE_SLOTS) {
+                paceKeys.shift()
+                paceTimes.shift()
+            }
+            paceKeys.push(key)
+            paceTimes.push(control.millis())
+            return
+        }
+        const wait = paceTimes[i] + SAME_FEED_GAP_MS - control.millis()
+        if (wait > 0) basic.pause(wait)
+        paceTimes[i] = control.millis()
+    }
+
     /**
-     * Send a number. It is collected and goes out with the next interval.
+     * Send a number. It is collected and goes out with the next interval. The
+     * same feed goes at most 4 times per second: called again sooner, the block
+     * waits a moment.
      * @param feed name of the feed, for example "temperature"
      * @param value the number to send
      * @param to who gets the value: everyone, the dashboard, or a device number
@@ -191,12 +222,14 @@ namespace iot {
     //% to.shadow="iot_target"
     //% group="Send" weight=90 blockGap=8
     export function send(feed: string, value: number, to?: string): void {
+        pace(feed, to)
         iotcore.send(feed, value, to)
     }
 
     /**
      * Send a text (at most 160 characters). It is collected and goes out with
-     * the next interval.
+     * the next interval. The same feed goes at most 4 times per second: called
+     * again sooner, the block waits a moment.
      * @param feed name of the feed, for example "message"
      * @param text the text to send
      * @param to who gets the text: everyone, the dashboard, or a device number
@@ -208,6 +241,7 @@ namespace iot {
     //% to.shadow="iot_target"
     //% group="Send" weight=89 blockGap=8
     export function sendText(feed: string, text: string, to?: string): void {
+        pace(feed, to)
         iotcore.sendText(feed, text, to)
     }
 

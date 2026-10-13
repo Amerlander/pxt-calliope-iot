@@ -227,6 +227,30 @@ test("retryAfterMs takes precedence over the own back-off", () => {
     assert.equal(r.core.queued(), 0);
 });
 
+test("too_fast is pacing: no error state, no back-off, the batch goes after retry_after", () => {
+    const r = rig();
+    let n = 0;
+    const sent = [];
+    r.core.onSent("", (feed, value, to) => sent.push([feed, value]));
+    const calls = r.wlan(() => {
+        n++;
+        if (n === 2) return r.fail("too_fast", { retryAfterMs: 1000 });
+        return r.ok();
+    });
+    r.core.setInterval(1000);
+    r.step(); // first request (clock)
+    r.core.send("f", 7);
+    for (let t = 0; t < 5000 && n < 2; t += 100) r.step(); // second request: 429
+    r.step(); // its answer is processed
+    assert.equal(n, 2);
+    assert.notEqual(r.core.status(), r.core.STATE_ERROR);
+    assert.equal(r.core.lastError(), "");
+    r.run(2000);
+    assert.deepEqual(sent, [["f", 7]]);
+    const g = gaps(calls);
+    assert.ok(g[g.length - 1] >= 1000 && g[g.length - 1] <= 1300, `resent after ${g[g.length - 1]} ms`);
+});
+
 test("NaN or omitted interval keeps the previous one; the loop never goes silent", () => {
     const r = rig();
     const calls = r.wlan(() => r.ok());

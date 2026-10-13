@@ -58,12 +58,15 @@ editorWindow.postMessage({ type: "calliope-iot-feeds", feeds: ["temp", "licht"] 
 ```
 
 - Receiver: pxt-calliope `fieldeditors/iotFeedOptions.ts` (extends `FieldAutoComplete.getOptions` for the
-  key `iotfeed` only; an editor without it shows the plain autocomplete). Each message replaces the list.
-  Names must match `^[a-z0-9_-]{1,40}$`, at most 200. Accepted only from the embedding page or from a frame
-  inside the editor.
-- Senders: the IoT simulator panel (pxt-iot-sim, a simx frame whose parent is the editor window:
-  `window.parent.postMessage(...)` after each `/read` view, keys of `view.feeds`), and/or Campus (it already
-  holds the dashboard's feeds; post to the MakeCode iframe on open and on change).
+  key `iotfeed` only; an editor without it shows the plain autocomplete). One list per sender; a message
+  replaces only its sender's list, an empty one removes it; the field offers the union, and a sender whose
+  frame is gone drops out. Names must match `^[a-z0-9_-]{1,40}$`, at most 200. Accepted only from the
+  embedding page or from a frame inside the editor.
+- Senders: the IoT simulator panel (pxt-iot-sim `sendFeedsToEditor`: after each `/read` view whose feed set
+  changed, keys of `view.feeds` — only feeds that carry values), and Campus (`MakeCode.svelte`: every feed of
+  the dashboard, on open, on change, from the chip's "Feeds" button; an empty list when the program closes).
+  Checked live without Campus: the panel's list (`Licht`, `mic`, `temperatur`, `tmp`) showed up in the field
+  next to the program's own `temp`.
 - Nothing is written into the project: no `iotfeeds.ts`, no re-import.
 - Checked live in the local editor: `tools/editor/feedoptions.mjs` (before: program feeds only; after the
   message: program feeds + dashboard feeds, invalid name dropped).

@@ -30,6 +30,8 @@ START = "=====USBSTART"
 SUM = "=====USBSUM====="
 END = "=====USBEND====="
 OVERFLOW = "<DAPLink:Overflow>"
+# Written by capture() itself where the host lost the port and reopened it.
+PORT_LOST = "<usbcheck:PortLost>"
 LINE_RE = re.compile(r"^U(\d+):([^:]*):(\d+)$")
 
 
@@ -48,12 +50,16 @@ def capture(port: str | None, reset: bool, timeout: float) -> str:
 
     dev = hil.find_port(port)
     deadline = time.time() + timeout
-    s = None
-    while s is None and time.time() < deadline:
-        try:
-            s = serial.Serial(dev, 115200, timeout=0.3)
-        except Exception:
-            time.sleep(1)  # the port re-enumerates after a flash
+
+    def open_port():
+        while time.time() < deadline:
+            try:
+                return serial.Serial(dev, 115200, timeout=0.3)
+            except Exception:
+                time.sleep(1)  # the port re-enumerates after a flash
+        return None
+
+    s = open_port()
     if s is None:
         hil.die(f"could not open {dev}")
     if reset:
@@ -61,12 +67,30 @@ def capture(port: str | None, reset: bool, timeout: float) -> str:
     print(f"[usbcheck] reading {dev} (up to {timeout:.0f} s)...", flush=True)
     raw = bytearray()
     while time.time() < deadline:
-        raw += s.read(8192)
+        try:
+            raw += s.read(8192)
+        except serial.SerialException:
+            # The DAPLink re-enumerated its USB serial in the middle of a run
+            # (seen in the WLAN control run). The device keeps running, so the
+            # capture goes on: a marker records where the host lost the port,
+            # and the gap is counted as a host loss, not as device output.
+            print(f"[usbcheck] port lost after {len(raw)} bytes, reopening...", flush=True)
+            try:
+                s.close()
+            except Exception:
+                pass
+            raw += f"\n{PORT_LOST}\n".encode()
+            s = open_port()
+            if s is None:
+                break
+            print("[usbcheck] port back", flush=True)
+            continue
         if END.encode() in raw:
             time.sleep(0.3)
             raw += s.read(8192)
             break
-    s.close()
+    if s is not None:
+        s.close()
     # latin-1 keeps every byte as one character: corruption stays visible.
     return hil.scrub(raw.decode("latin-1"), hil.load_secrets())
 
@@ -95,7 +119,9 @@ def analyse(text: str) -> dict:
             r["device_lines"] = int(m.group(1))
     last = 0
     r["overflows"] = 0
+    r["port_lost"] = 0
     after_overflow = False
+    last_corrupt = False
     for ln in body.split("\n"):
         ln = ln.rstrip("\r")
         if not ln:
@@ -108,6 +134,14 @@ def analyse(text: str) -> dict:
             r["overflows"] += 1
             after_overflow = True
             continue
+        # The host lost the port (capture() wrote this): the line cut off just
+        # before it and the fragment after it are host damage as well.
+        if PORT_LOST in ln:
+            r["port_lost"] += 1
+            if last_corrupt:
+                r["corrupt"].pop()
+            after_overflow = True
+            continue
         if after_overflow:
             after_overflow = False
             if not LINE_RE.match(ln):
@@ -115,6 +149,7 @@ def analyse(text: str) -> dict:
         m = LINE_RE.match(ln)
         ok = (m is not None and m.group(2) == FILL and
               int(m.group(3)) == line_hash(f"U{m.group(1)}:{m.group(2)}"))
+        last_corrupt = not ok
         if not ok:
             r["corrupt"].append(ln)
             continue
@@ -182,11 +217,15 @@ def main() -> None:
         print(f"    {ln!r}")
     print(f"numbers missing:        {len(missing)} {missing[:12]}")
     gaps = sum(1 for i, n in enumerate(missing) if i == 0 or missing[i - 1] != n - 1)
-    # One overflow loses one contiguous run of lines. If every gap is matched by
-    # a marker, the loss happened in the DAPLink, not on the device.
-    dap_only = bool(missing) and gaps <= r["overflows"]
-    print(f"DAPLink overflows:      {r['overflows']}" +
-          (f" (explain all {gaps} gap(s): lost in the DAPLink, not on the device)" if dap_only else ""))
+    # One overflow (or one lost port) loses one contiguous run of lines. If
+    # every gap is matched by a marker, the loss happened between the device
+    # and this script, not on the device.
+    host_losses = r["overflows"] + r["port_lost"]
+    dap_only = bool(missing) and gaps <= host_losses
+    print(f"DAPLink overflows:      {r['overflows']}")
+    print(f"port lost (host):       {r['port_lost']}")
+    if dap_only:
+        print(f"                        (explain all {gaps} gap(s): lost on the way, not on the device)")
     print(f"duplicates / reordered: {r['dups']} / {r['order']}")
     module_bad = module_side_bad(r["summary"])
     print(f"module side:            {'OK' if not module_bad else '; '.join(module_bad)}")

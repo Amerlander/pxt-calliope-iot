@@ -68,6 +68,11 @@ namespace iotcore {
     // "Immediately" over WLAN therefore means 1 s. The floor applies in the
     // loop, not when the interval is set: block order is not guaranteed, and a
     // full buffer raises the urgency but never removes the floor.
+    // It counts from the previous ANSWER, not from the previous launch: the
+    // server measures between arrivals, and a request's way through the module
+    // varies by 50-400 ms. Counted from the launch, every tenth request or so
+    // arrived under 900 ms after the one before and came back 429 (HIL,
+    // 2026-10-13: 50 of 348 with a program that sends constantly).
     const WLAN_FLOOR_MS = 1000
     const BACKOFF_START_MS = 1000
     const BACKOFF_MAX_MS = 30000
@@ -378,7 +383,15 @@ namespace iotcore {
         const a = answer
         if (!a) return
         answer = null
+        lastSendMs = control.millis() // the floor counts from here, see WLAN_FLOOR_MS
         if (a.serverSec > 0) setClock(a.serverSec, a.tzoMin)
+        if (!a.ok && a.error == "too_fast") {
+            // Pacing, not a fault: the batch is resent after the server's wait.
+            // No error state (a status block would flicker), no back-off.
+            retryAtMs = control.millis() + Math.min(a.retryAfterMs > 0 ? a.retryAfterMs : WLAN_FLOOR_MS, RETRY_AFTER_MAX_MS)
+            if (fBatch && fBatch.feeds.length == 0) fBatch = null
+            return
+        }
         if (!a.ok) {
             failed(a.error != "" ? a.error : "error", a.retryAfterMs)
             // An empty poll has nothing to deduplicate: the next attempt may
