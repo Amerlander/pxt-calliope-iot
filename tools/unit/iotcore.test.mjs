@@ -285,7 +285,8 @@ test("an idle WLAN program polls only when it reads something or needs the clock
     assert.equal(calls.length, 1, "one request for the clock, then silence");
     r.core.onNumber("soll", r.core.WHO_DASHBOARD, () => {});
     r.run(5000);
-    assert.ok(calls.length >= 5, `a reading program polls: ${calls.length}`);
+    // Idle polls every 2 s (IDLE_POLL_MS), not every interval.
+    assert.ok(calls.length >= 3 && calls.length <= 4, `a reading program polls every 2 s: ${calls.length}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -307,12 +308,12 @@ test("the cursor advances only after the rows were dispatched, and only on ok", 
     assert.equal(calls[0].since, 0);
     assert.deepEqual(got, [[7, "0"], [8, "123"]]);
     assert.equal(r.core.read("soll", "0"), 7);
-    r.run(1200);
+    r.run(2200); // idle poll every 2 s
     assert.equal(calls[1].since, 42, "next request continues from cur");
     r.run(3000);
     assert.equal(calls[2].since, 42, "a failed answer moves nothing");
     assert.ok(!got.some(([v]) => v === 666), "rows of a failed answer are not dispatched");
-    r.run(1200);
+    r.run(2200);
     assert.equal(calls[3].since, 50);
 });
 
@@ -464,17 +465,18 @@ test("D4: read without an addressee sees values to everyone or to me; an explici
     assert.equal(r.core.read("temp"), 6);
 });
 
-test("D3: without an interval block the buffer goes every 5 s", () => {
+test("D3 (v0.1.2): without an interval block every value goes as soon as the floor allows", () => {
     const r = rig();
-    const calls = r.wlan(() => r.ok());
+    // With the clock in the answer: otherwise the idle poll asks for it again.
+    const calls = r.wlan(() => r.ok({ serverSec: 1790000000, tzoMin: 0 }));
     r.core.send("a", 1);
     r.run(300);
     assert.equal(calls.length, 1, "the first request goes as soon as WiFi is there");
     r.core.send("a", 2);
-    r.run(6000);
-    assert.equal(calls.length, 2);
+    r.run(3000);
+    assert.equal(calls.length, 2, "one more request for the one value, then quiet (nothing reads)");
     const g = gaps(calls)[0];
-    assert.ok(g >= 5000 && g <= 5100, `second request after ${g} ms`);
+    assert.ok(g >= 1000 && g <= 1300, `second request after ${g} ms`);
     assert.deepEqual(calls[1].values, ["2"]);
 });
 
@@ -586,12 +588,12 @@ test("a scope change during a request starts a fresh snapshot; the old answer's 
     const calls = r.wlan(() => (++n === 1 ? r.ok({ cur: 42 }) : r.ok({ cur: 60 + n })));
     r.core.onNumber("x", r.core.WHO_DASHBOARD, () => {});
     r.core.setInterval(1000);
-    r.run(1200);
+    r.run(2200); // idle poll every 2 s
     assert.equal(calls[1].since, 42);
-    r.step(1000, { fibersToo: false }); // request 3 in flight with since=…
+    r.step(2000, { fibersToo: false }); // request 3 in flight with since=…
     r.core.onNumber("y", r.core.WHO_OTHERS, () => {}); // wider scope: snapshot wanted
     r.runFibers(); // the in-flight answer brings cur=63 for the OLD question
-    r.run(1200);
+    r.run(2200);
     const next = calls[calls.length - 1];
     assert.equal(next.scope, "a");
     assert.equal(next.since, 0, "fresh snapshot for the new scope");

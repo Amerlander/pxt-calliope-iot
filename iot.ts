@@ -162,14 +162,19 @@ namespace iot {
         iotcore.setDashboard(reference, server)
     }
 
+    // Hidden since v0.1.2: without it every value goes as soon as it may (over
+    // WiFi at most once per second), which is what a dashboard wants. Kept so
+    // programs that contain the block still open, and for code that wants to
+    // send less often on purpose.
     /**
-     * How often the collected values are sent. Without this block: every 5
-     * seconds. Over WiFi at most once per second, even with "immediately".
+     * How often the collected values are sent. Without this block: as soon as
+     * possible. Over WiFi at most once per second, even with "immediately".
      * @param interval how often to send
      */
     //% blockId=iot_interval
     //% block="send $interval"
     //% interval.defl=IotInterval.EverySecond
+    //% blockHidden=true
     //% group="Connection" weight=98
     export function setInterval(interval: IotInterval): void {
         // The core keeps the previous interval for NaN (omitted argument).
@@ -245,12 +250,14 @@ namespace iot {
         iotcore.sendText(feed, text, to)
     }
 
+    // Hidden since v0.1.2 like the interval block: values go at once anyway.
     /**
      * Send the collected values now instead of waiting for the interval.
      * Over WiFi still at most once per second.
      */
     //% blockId=iot_send_now
     //% block="send now"
+    //% blockHidden=true
     //% group="Send" weight=88 blockGap=8
     export function sendNow(): void {
         iotcore.sendNow()

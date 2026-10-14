@@ -16,7 +16,7 @@ on them instead.
 |---|---|---|---|---|
 | `iot_wifi_connect` | `iot.connectWifi(ssid, password, tx?, rx?)` | `connect to WiFi $ssid password $password \|\| TX $tx RX $rx` | `mit WLAN $ssid Passwort $password verbinden \|\| TX $tx RX $rx` | Non-blocking. Opens the module UART after the 5 s cold-boot rule. Pins default C17/C16 (Grove A1), hidden behind "+". Its presence switches the program to WLAN. Campus fills ssid/password from the room settings (only into a completely empty block). |
 | `iot_dashboard` | `iot.connectDashboard(reference, server?)` | `connect to dashboard $reference \|\| server $server` | `mit Dashboard $reference verbinden \|\| Server $server` | Campus writes reference and server only when a dashboard is picked in the chip. Default server: `https://campus-api.calliope.cc`. |
-| `iot_interval` | `iot.setInterval(interval: IotInterval)` | `send every $interval` | `sende $interval` | Required parameter. `IotInterval`: immediately / every second / every 5 seconds / every minute / every hour (de: sofort / jede Sekunde / alle 5 Sekunden / jede Minute / jede Stunde). WLAN floor 1 s. Default without this block: see decision D3. |
+| `iot_interval` | `iot.setInterval(interval: IotInterval)` | `send every $interval` | `sende $interval` | Required parameter. `IotInterval`: immediately / every second / every 5 seconds / every minute / every hour (de: sofort / jede Sekunde / alle 5 Sekunden / jede Minute / jede Stunde). WLAN floor 1 s. **Hidden since v0.1.2**: without it values go at once (D3). |
 
 ## Sending
 
@@ -24,7 +24,7 @@ on them instead.
 |---|---|---|---|---|
 | `iot_send` | `iot.send(feed, value, to?)` | `send $feed = $value \|\| to $to` | `sende $feed = $value \|\| an $to` | Queued, sent in the interval. `to`: shadow `iot_target` (all / dashboard) or a device id. The same feed to the same receiver at most every 250 ms: called sooner, the block waits for the rest (a forever loop without a pause otherwise queued ~50 values/s while ~8/s leave over WiFi). Different feeds never wait for each other. Same rule for `send text`. |
 | `iot_send_text` | `iot.sendText(feed, text, to?)` | `send text $feed = $text \|\| to $to` | `sende Text $feed = $text \|\| an $to` | Text capped at 160 bytes. |
-| `iot_send_now` | `iot.sendNow()` | `send now` | `sende jetzt` | Flush without waiting for the interval (still ≥ 1 s on WLAN). |
+| `iot_send_now` | `iot.sendNow()` | `send now` | `sende jetzt` | Flush without waiting for the interval (still ≥ 1 s on WLAN). **Hidden since v0.1.2** (D3). |
 | `iot_on_sent` | `iot.onSent(feed, handler(feed, value, to))` | `on $feed sent` | `wenn $feed gesendet` | Fires only after the server confirmed. Empty feed = every feed (the feed field starts empty). |
 
 ## Receiving
@@ -79,8 +79,12 @@ Advanced (`//% advanced=true`): module firmware version, module info.
 
 ## Decisions (2026-10-13)
 
-- **D3 — default interval without an interval block: 5 s.** The program a dashboard creates in Campus places
-  `send every 1 second` explicitly (P5).
+- **D3 — no interval block (changed in v0.1.2, was: default 5 s).** Every value goes as soon as it may: over
+  WiFi at most one request per second (counted from the previous answer), through Campus at once (the relay
+  batches once per second). With nothing to send, a program that reads or still needs the clock asks every
+  2 s, so a dashboard value reaches the mini within ~2 s. The buffer keeps values against loss, not back on
+  purpose. `iot_interval` and `iot_send_now` are hidden (still in the API; programs containing them open).
+  In the simulator values wait in the buffer until a dashboard is named — the panel does not exist before.
 - **D4 — `read` without an addressee returns only values to everyone or to this device** (the handlers' rule);
   with an explicit `to` it returns exactly that addressee.
 - **D5 — plain MakeCode without Campus (resolved 2026-10-13).** A shadow id without a block is not a cosmetic

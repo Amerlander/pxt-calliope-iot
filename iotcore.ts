@@ -63,7 +63,17 @@ namespace iotcore {
     const REF_MAX = 120
     const SERVER_MAX = 100
 
-    const INTERVAL_DEFAULT_MS = 5000
+    // Without an interval block every value goes out as soon as it may: over
+    // WLAN at the floor below, through Campus at the next tick (the relay
+    // batches once per second itself). The buffer keeps nothing back on
+    // purpose — a child expects the dashboard to move when the mini sends,
+    // not five seconds later. (Was 5 s until v0.1.1, decision D3.)
+    const INTERVAL_DEFAULT_MS = 0
+    // With nothing to send, the request is only a question for downlink values
+    // and the clock (and only made when the program reads or needs the time).
+    // Every 2 s: a dashboard button reaches the mini within ~2 s, and a class
+    // of idle readers stays far below the server's per-dashboard guard.
+    const IDLE_POLL_MS = 2000
     // The server takes about one batch per device per second (900 ms bucket).
     // "Immediately" over WLAN therefore means 1 s. The floor applies in the
     // loop, not when the interval is set: block order is not guaranteed, and a
@@ -270,6 +280,11 @@ namespace iotcore {
             // The announcement goes first (it waits for 250 ms uptime): Campus
             // should know who speaks before the first datapoint arrives.
             if (pId.length == 0 || helloDue) return
+            // The simulator's panel only exists once a dashboard is named; a
+            // value flushed before that would go nowhere. So it waits in the
+            // buffer (the device does not: Campus takes the open program's
+            // dashboard when the reference is empty).
+            if (isSimulator() && ref == "") return
             if (!urgent && now < nextFlushMs) return
             urgent = false
             nextFlushMs = now + intervalMs
@@ -292,7 +307,7 @@ namespace iotcore {
         }
         if (!urgent && now < nextFlushMs) return
         urgent = false
-        nextFlushMs = now + Math.max(intervalMs, WLAN_FLOOR_MS)
+        nextFlushMs = now + Math.max(intervalMs, pId.length > 0 ? WLAN_FLOOR_MS : IDLE_POLL_MS)
         // Nothing to send: ask anyway when the program reads something or
         // still needs the clock, because the answer is the only downlink.
         if (pId.length == 0 && !wantDashboard && !wantDevices && clockKnown) return

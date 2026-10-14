@@ -95,7 +95,7 @@
   "iot.send|param|feed": "Name des Feeds, zum Beispiel „temperatur“",
   "iot.send|param|to": "wer den Wert bekommt: alle, das Dashboard oder eine Gerätenummer",
   "iot.send|param|value": "die Zahl, die gesendet wird",
-  "iot.setInterval": "Wie oft die gesammelten Werte gesendet werden. Ohne diesen Block: alle 5 Sekunden. Über WLAN höchstens einmal pro Sekunde, auch bei „sofort“.",
+  "iot.setInterval": "Wie oft die gesammelten Werte gesendet werden. Ohne diesen Block: so bald wie möglich. Über WLAN höchstens einmal pro Sekunde, auch bei „sofort“.",
   "iot.setInterval|block": "sende $interval",
   "iot.setInterval|param|interval": "wie oft gesendet wird",
   "iot.status": "Der Zustand der IoT-Verbindung: nicht verbunden, verbunden, sendet, Fehler oder kein WLAN-Modul.",
