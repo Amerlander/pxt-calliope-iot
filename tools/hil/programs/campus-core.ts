@@ -61,7 +61,7 @@ function stateText(): string {
 
 basic.showString("C")
 iotcore.setDashboard("$REF", "$SERVER")
-iotcore.setInterval(2000)
+iotcore.setSync(2000)
 
 say("CAMPUS-CORE-START id=" + iotcore.deviceId() + " name=" + iotcore.deviceName()
     + " server=" + iotcore.serverAddress())
@@ -136,10 +136,10 @@ check("onSent fires when lines leave", sentCount >= sentBefore + 2,
     "sent " + (sentCount - sentBefore) + " since, queued=" + iotcore.queued())
 
 // Back-to-back lines through the one-slot mailbox: all must arrive, in order.
-iotcore.setInterval(0)
+iotcore.setSync(0)
 for (let i = 0; i < 12; i++) iotcore.send("burst", i)
 basic.pause(1500)
-iotcore.setInterval(2000)
+iotcore.setSync(2000)
 check("burst of 12 drained", iotcore.queued() == 0, "queued=" + iotcore.queued()
     + "; expect IOT1:d::burst:0 … 11 in order on serial and in Campus")
 

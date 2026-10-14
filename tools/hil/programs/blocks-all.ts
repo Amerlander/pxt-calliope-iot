@@ -13,7 +13,9 @@
 // Connection
 iot.connectWifi("school-wifi", "secret123", SerialPin.C17, SerialPin.C16)
 iot.connectDashboard("weather-station", "https://campus-api.calliope.cc")
-iot.setInterval(IotInterval.EverySecond)
+iot.syncEvery(IotSync.Every2Seconds)
+iot.syncEvery(IotSync.EveryMinute, IotSyncMode.OnlySend)
+iot.sleepWifi()
 
 let setpoint = 22
 

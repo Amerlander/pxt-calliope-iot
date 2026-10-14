@@ -130,7 +130,7 @@ test("bring-up ESP32-C3 / ESP-AT 3.3: commands in order, UART only after 5 s", (
     assert.ok(k.cmds[0].t >= 5000, `first command at ${k.cmds[0].t} ms`);
     assert.deepEqual(k.lines(), [
         "AT", "ATE0", "AT+GMR", "AT+SYSSTORE=0", "AT+CWMODE=1", "AT+CIPCLOSE", "AT+CIPMUX=0", "AT+CIPMODE=0",
-        "AT+CIPDINFO=0", "AT+SYSLOG=1", "AT+CIPRECVMODE=1", "AT+CWSTATE?", 'AT+CWJAP="Klasse 4b","geheim"', "AT+CWJAP?",
+        "AT+CIPDINFO=0", "AT+SYSLOG=1", "AT+SLEEP=1", "AT+CIPRECVMODE=1", "AT+CWSTATE?", 'AT+CWJAP="Klasse 4b","geheim"', "AT+CWJAP?",
     ]);
     assert.equal(k.wifi.recoveryRung(), "", "a module that answers needs no recovery");
     assert.equal(k.wifi.recoveryRuns(), 0);
@@ -249,6 +249,40 @@ test("the module reconnects by itself: GOT IP -> check at once, no CWJAP", () =>
     k.run(1500);
     assert.equal(k.wifi.state(), ONLINE);
     assert.equal(k.net.joins.length, joins, "CWSTATE? showed the same SSID");
+});
+
+test("sleep: radio off, no checks while asleep; a post wakes it (radio on, join) and goes through", () => {
+    const k = wifiRig();
+    assert.equal(k.online(), true);
+    k.wifi.sleep();
+    assert.equal(k.wifi.state(), 5, "SLEEPING");
+    assert.equal(k.wifi.stateText(), "sleeping");
+    assert.equal(k.net.joined, null, "left the network");
+    assert.equal(k.net.radioOff, true, "radio off");
+    const n = k.cmds.length;
+    k.run(70000);
+    assert.equal(k.wifi.state(), 5, "stays asleep: the WIFI DISCONNECT is no lost connection");
+    assert.equal(k.cmds.length, n, "no link checks while asleep");
+    const a = k.post(k.batch(), k.ctx());
+    assert.equal(a.ok, true, `post after wake: ${a.error}`);
+    assert.equal(k.wifi.state(), ONLINE);
+    assert.equal(k.net.radioOff, false);
+    const sent = k.lines().slice(n);
+    assert.ok(sent.indexOf("AT+CWMODE=1") >= 0 && sent.indexOf("AT+CWMODE=1") < sent.findIndex((l) => l.startsWith("AT+CWJAP=")),
+        `radio on before the join: ${sent.join(" | ")}`);
+});
+
+test("sleep only from ONLINE; a module reset while asleep brings it up again", () => {
+    const k = wifiRig();
+    k.connect();
+    k.wifi.sleep(); // still OFF/WAKING: nothing to save power on
+    assert.notEqual(k.wifi.state(), 5);
+    assert.equal(k.wifi.waitOnline(60000), true);
+    k.wifi.sleep();
+    assert.equal(k.wifi.state(), 5);
+    k.net.reboot(50);
+    k.run(15000);
+    assert.equal(k.wifi.state(), ONLINE, "a reboot re-runs the bring-up and joins");
 });
 
 test("a silent loss (no URC) is caught by the 30 s AT+CWJAP? check", () => {

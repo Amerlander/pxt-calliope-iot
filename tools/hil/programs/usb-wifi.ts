@@ -47,7 +47,7 @@ iotcore.onSent("", function (feed: string, value: number, to: string) {
 })
 iotwifi.connect("$SSID", "$PW", SerialPin.C17, SerialPin.C16)
 iotcore.setDashboard("$REF", "$SERVER")
-iotcore.setInterval(1000)
+iotcore.setSync(1000)
 const online = iotwifi.waitOnline(90000)
 // connect() opened the port; the switch only takes effect for later writes.
 if (MODE == "ring") iotwlan.configure(3, 1)

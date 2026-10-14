@@ -86,6 +86,21 @@ namespace iotcore {
         return wlanSendFn;
     }
 
+    // Putting the module to sleep goes through a hook too, for the same
+    // reason. Sleep means radio off; the sender wakes it again by itself
+    // (radio on, join) before the next request.
+    let wlanSleepFn: () => void = null;
+
+    /** Called by the WLAN client together with setWlanSender. */
+    export function setWlanSleeper(fn: () => void): void {
+        wlanSleepFn = fn;
+    }
+
+    /** The registered sleeper, or null (Campus path, simulator). */
+    export function wlanSleeper(): () => void {
+        return wlanSleepFn;
+    }
+
     /** Outcome of one transport attempt, plus whatever came back downstream. */
     export class Answer {
         /** The server accepted the batch (`"ok":1`, including `"dup":1`). */

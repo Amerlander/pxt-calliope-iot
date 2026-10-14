@@ -8,7 +8,7 @@ iotcore.setWlanSender(function (b: iotcore.Batch, c: iotcore.IngestContext) {
     return a
 })
 iotcore.setDashboard("demo", "localhost:8090")
-iotcore.setInterval(1000)
+iotcore.setSync(1000)
 iotcore.send("a", 1, iotcore.WHO_DASHBOARD)
 iotcore.sendText("b", "x")
 iotcore.sendNow()

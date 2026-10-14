@@ -135,3 +135,20 @@ carries the DAPLink overflow marker and is host-side.)
 One event against none in one run each is thin on its own; with the repeatedly damaged status lines of the
 soak (§6) it fits. **Status: fix in place, #20 closed.** Also found on the way: `usbcheck.py` now survives a
 USB serial port that re-enumerates mid-run (the first control attempt crashed on that).
+
+## 8. Sleep (2026-10-14, v0.2.0) — `programs/sleep-probe.ts`, `programs/sleep-wifi.ts`
+
+Probe on the ESP32-C3 (ESP-AT 3.3.0.0):
+- **Modem sleep is the default** (`AT+SLEEP?` → `+SLEEP:1`): connected and idle, the radio only wakes for the
+  access point's beacons. The setting is not stored, so an earlier program can leave it off until the module
+  restarts — the client now sets `AT+SLEEP=1` in its bring-up.
+- **Radio off works:** `AT+CWQAP` + `AT+CWMODE=0` → `+CWMODE:0`; the module still answers `AT` at once (8 ms).
+- **Waking:** `AT+CWMODE=1` + `AT+CWJAP` → online after **2.7 s** (cold join: 1.2 s).
+- No deep sleep (`AT+GSLP`): waking from it early needs the module's reset line, which the Grove cable lacks.
+
+`sleep-wifi.ts` on the mini 3:
+- **Sleep block:** `wifi=sleeping`, status 5, still asleep after 10 s; the next send woke the module and the
+  value was confirmed **5.0 s** later (wake 2.7 s + the fiber's turn + join check + post).
+- **Sync every minute:** a value sent right after switching waited for the next sync (one request per minute,
+  counted from the last request); both pending values went in that one request, and the radio was off right
+  after the answer.

@@ -76,7 +76,7 @@ test("a scope change restates the hello with the new r:", () => {
 
 test("uplink lines parse with Campus wire.ts", needWire, () => {
     const r = rig();
-    r.core.setInterval(0);
+    r.core.setSync(0);
     r.run(300);
     r.core.send("Temperatur", 21.5);
     r.core.sendText("nachricht", "a:b:c", "0");
@@ -106,7 +106,7 @@ test("uplink lines parse with Campus wire.ts", needWire, () => {
 
 test("the spelling goes once per host and again after a hello", () => {
     const r = rig();
-    r.core.setInterval(0);
+    r.core.setSync(0);
     r.run(300);
     r.core.send("Licht", 1);
     r.run(200);
@@ -149,16 +149,14 @@ test("downlink lines built by Campus wire.ts reach cache, handlers and clock", n
     assert.equal(r.core.zoneMinutes(), 60);
 });
 
-test("onSent fires on the Campus path when the line leaves", () => {
+test("onSent fires on the Campus path when the line leaves — at once, the sync interval is a WLAN setting", () => {
     const r = rig();
     const sent = [];
     r.core.onSent("", (feed, v, to) => sent.push([feed, v, to]));
-    r.core.setInterval(2000);
+    r.core.setSync(2000);
     r.run(300);
     r.core.send("a", 5, "0");
     r.run(500);
-    assert.deepEqual(sent, [], "still in the buffer");
-    r.run(2000);
     assert.deepEqual(sent, [["a", 5, "0"]]);
 });
 
@@ -168,7 +166,7 @@ test("onSent fires on the Campus path when the line leaves", () => {
 test("back-to-back lines all reach a mailbox host polling every 50 ms, in order, with serial in step", () => {
     const r = rig({ t0: 0, mailboxHost: true });
     r.core.setDashboard("demo");
-    r.core.setInterval(0);
+    r.core.setSync(0);
     for (let i = 0; i < 20; i++) r.core.send("burst", i);
     r.run(3000, 10);
     const got = r.mb.received.map((x) => x.line);
@@ -184,7 +182,7 @@ test("back-to-back lines all reach a mailbox host polling every 50 ms, in order,
 
 test("without a mailbox host lines wait once (120 ms), then flow freely", () => {
     const r = rig({ t0: 0 });
-    r.core.setInterval(0);
+    r.core.setSync(0);
     for (let i = 0; i < 10; i++) r.core.send("x", i);
     r.run(1000, 10);
     assert.equal(r.serialLines().length, 12, "hello (2) + 10 points");
@@ -196,7 +194,7 @@ test("without a mailbox host lines wait once (120 ms), then flow freely", () => 
 
 test("a host that stops draining is given up on after 250 ms and picked up again", () => {
     const r = rig({ t0: 0, mailboxHost: true });
-    r.core.setInterval(0);
+    r.core.setSync(0);
     r.run(500, 10);
     r.mb.polling = false; // cable pulled
     for (let i = 0; i < 5; i++) r.core.send("a", i);
@@ -299,7 +297,7 @@ test("BLE side channel gets every line; values from it are handled", () => {
     r.ns.iot.setzeZusatzKanal((l) => ble.push(l));
     const got = [];
     r.core.onNumber("soll", r.core.WHO_ALL, (v) => got.push(v));
-    r.core.setInterval(0);
+    r.core.setSync(0);
     r.run(300);
     r.core.send("a", 1);
     r.run(100);
@@ -350,7 +348,7 @@ test("simulator: a registered WLAN sender is ignored, the panel is the transport
     const r = rig({ sim: true, serial: 42 });
     const calls = r.wlan(() => r.ok());
     r.core.setDashboard("demo");
-    r.core.setInterval(0);
+    r.core.setSync(0);
     r.core.send("a", 1);
     r.run(600);
     assert.equal(calls.length, 0);

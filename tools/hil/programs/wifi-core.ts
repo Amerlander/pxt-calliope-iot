@@ -21,7 +21,7 @@ line("=====SOAK=====")
 line("soak: " + MINUTES + " min, counter soak_n every 1 s, interval 1 s; set 'Licht' on the dashboard to test the downlink")
 iotwifi.connect("$SSID", "$PW", SerialPin.C17, SerialPin.C16)
 iotcore.setDashboard("$REF", "$SERVER")
-iotcore.setInterval(1000)
+iotcore.setSync(1000)
 iotcore.onSent("", function (feed: string, value: number, to: string) {
     if (feed == "soak_n") sentOk++
 })

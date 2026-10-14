@@ -31,19 +31,31 @@
 //     percent sign): pxt reads the rest of such a line as annotations.
 
 /**
- * How often the collected values are sent.
+ * How often the mini syncs with the dashboard over WiFi.
  */
-enum IotInterval {
-    //% block="immediately"
-    Immediately = 0,
-    //% block="every second"
-    EverySecond = 1000,
-    //% block="every 5 seconds"
+enum IotSync {
+    //% block="2 seconds"
+    Every2Seconds = 2000,
+    //% block="5 seconds"
     Every5Seconds = 5000,
-    //% block="every minute"
+    //% block="10 seconds"
+    Every10Seconds = 10000,
+    //% block="minute"
     EveryMinute = 60000,
-    //% block="every hour"
+    //% block="10 minutes"
+    Every10Minutes = 600000,
+    //% block="hour"
     EveryHour = 3600000
+}
+
+/**
+ * Whether a sync also asks the dashboard for new values.
+ */
+enum IotSyncMode {
+    //% block="send and receive"
+    SendAndReceive = 0,
+    //% block="only send"
+    OnlySend = 1
 }
 
 /**
@@ -87,7 +99,9 @@ enum IotStatus {
     //% block="error"
     Error = 3,
     //% block="no WiFi module"
-    NoWifiModule = 4
+    NoWifiModule = 4,
+    //% block="sleeping"
+    Sleeping = 5
 }
 
 /**
@@ -162,23 +176,37 @@ namespace iot {
         iotcore.setDashboard(reference, server)
     }
 
-    // Hidden since v0.1.2: without it every value goes as soon as it may (over
-    // WiFi at most once per second), which is what a dashboard wants. Kept so
-    // programs that contain the block still open, and for code that wants to
-    // send less often on purpose.
     /**
-     * How often the collected values are sent. Without this block: as soon as
-     * possible. Over WiFi at most once per second, even with "immediately".
-     * @param interval how often to send
+     * How often the mini syncs with the dashboard over WiFi: at most one
+     * request per interval, which carries the collected values and brings the
+     * dashboard's new values back. Without this block: every 2 seconds. A value
+     * after a quiet spell goes at once. From a minute on, the WiFi module
+     * sleeps between syncs to save power. "only send": no requests that only
+     * ask for new values. Through the Campus tab values always go at once.
+     * @param interval how often to sync
+     * @param mode also receive new values, or only send
      */
-    //% blockId=iot_interval
-    //% block="send $interval"
-    //% interval.defl=IotInterval.EverySecond
-    //% blockHidden=true
-    //% group="Connection" weight=98
-    export function setInterval(interval: IotInterval): void {
-        // The core keeps the previous interval for NaN (omitted argument).
-        iotcore.setInterval(interval)
+    //% blockId=iot_sync
+    //% block="sync with dashboard every $interval || $mode"
+    //% expandableArgumentMode="toggle"
+    //% interval.defl=IotSync.Every2Seconds
+    //% mode.defl=IotSyncMode.SendAndReceive
+    //% group="Connection" weight=98 blockGap=8
+    export function syncEvery(interval: IotSync, mode?: IotSyncMode): void {
+        // NaN-safe: an omitted mode is NaN, and NaN == 1 is false.
+        iotcore.setSync(interval, mode == IotSyncMode.OnlySend)
+    }
+
+    /**
+     * Put the WiFi module to sleep: its radio goes off and it uses much less
+     * power. The next value that is sent wakes it again (that takes a few
+     * seconds). While it sleeps, no new values arrive from the dashboard.
+     */
+    //% blockId=iot_sleep
+    //% block="put WiFi module to sleep"
+    //% group="Connection" weight=97
+    export function sleepWifi(): void {
+        iotcore.sleepNow()
     }
 
     // ---- Send ------------------------------------------------------------
@@ -508,6 +536,7 @@ namespace iot {
     export function status(): IotStatus {
         if (wifiUnsupported) return IotStatus.NoWifiModule
         if (!iotcore.usesWlan()) return iotcore.status()
+        if (iotwifi.isSleeping()) return IotStatus.Sleeping
         // WLAN: until the module is in the network, the WiFi state is the
         // answer; the core's own state then only says "requests fail".
         if (!iotwifi.isOnline()) {

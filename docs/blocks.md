@@ -16,7 +16,8 @@ on them instead.
 |---|---|---|---|---|
 | `iot_wifi_connect` | `iot.connectWifi(ssid, password, tx?, rx?)` | `connect to WiFi $ssid password $password \|\| TX $tx RX $rx` | `mit WLAN $ssid Passwort $password verbinden \|\| TX $tx RX $rx` | Non-blocking. Opens the module UART after the 5 s cold-boot rule. Pins default C17/C16 (Grove A1), hidden behind "+". Its presence switches the program to WLAN. Campus fills ssid/password from the room settings (only into a completely empty block). |
 | `iot_dashboard` | `iot.connectDashboard(reference, server?)` | `connect to dashboard $reference \|\| server $server` | `mit Dashboard $reference verbinden \|\| Server $server` | Campus writes reference and server only when a dashboard is picked in the chip. Default server: `https://campus-api.calliope.cc`. |
-| `iot_interval` | `iot.setInterval(interval: IotInterval)` | `send every $interval` | `sende $interval` | Required parameter. `IotInterval`: immediately / every second / every 5 seconds / every minute / every hour (de: sofort / jede Sekunde / alle 5 Sekunden / jede Minute / jede Stunde). WLAN floor 1 s. **Hidden since v0.1.2**: without it values go at once (D3). |
+| `iot_sync` | `iot.syncEvery(interval: IotSync, mode?: IotSyncMode)` | `sync with dashboard every $interval \|\| $mode` | `mit Dashboard abgleichen $interval \|\| $mode` | WLAN only. At most one request per interval (it carries the collected values and brings the dashboard's new values back). `IotSync`: 2 s / 5 s / 10 s / minute / 10 minutes / hour (de labels carry the article: alle 2 Sekunden … jede Minute … jede Stunde). Without the block: 2 s. `IotSyncMode` behind "+": send and receive (default) / only send (no requests that only ask). From a minute on the module sleeps between syncs. See D3. |
+| `iot_sleep` | `iot.sleepWifi()` | `put WiFi module to sleep` | `WLAN-Modul schlafen legen` | Radio off (AT+CWQAP, AT+CWMODE=0); the module stays reachable on its UART. The next value wakes it (radio on, join: a few seconds) and goes; until then no request goes out just to ask. Status `sleeping`. No deep sleep: waking from it early needs the module's reset line, which the Grove cable does not carry. |
 
 ## Sending
 
@@ -79,15 +80,15 @@ Advanced (`//% advanced=true`): module firmware version, module info.
 
 ## Decisions (2026-10-13)
 
-- **D3 — no interval block (v0.1.2/v0.1.3, was: default 5 s).** Over WiFi a value after a quiet spell goes at
-  once (one request per second at most, counted from the previous answer). Values that follow within a second of
-  the last request are collected and go together: when 8 are there (a full request) or when the oldest has waited
-  5 s — 2 s if the program also receives, because every answer brings the dashboard values back. With nothing to
-  send, a program that receives (or needs the clock) asks every 2 s. Through Campus every value goes at once (the
-  relay batches once per second). `iot_interval` and `iot_send_now` are hidden (still in the API; programs
-  containing them open and keep their meaning). In the simulator values wait until a dashboard is named.
-  Hardware (mini 3, 1 value/s with a receive block): requests 3 s apart with ~3 values each, every value
-  confirmed, 0 × 429 (v0.1.2 sent one request per ~1.2 s).
+- **D3 — sync interval (v0.2.0; was a fixed 5 s until v0.1.1, collecting windows in v0.1.2/v0.1.3).** One
+  setting bounds how often a mini talks to the server over WiFi: at most one request per sync interval (2 s by
+  default, `iot_sync` changes it). A value after a quiet spell goes at once — that costs no extra request; values
+  that come sooner are collected until the next sync, or go at the 1 s floor once 8 (a full request) are there.
+  A program that receives also asks every interval when it has nothing to send, unless set to "only send" or
+  put to sleep. Requests per dashboard are therefore bounded by minis / interval (30 minis at 2 s: ≤ 15/s,
+  below the server's guard of 30). From a minute on the module's radio goes off after each sync (wake: radio
+  on + join, a few seconds). Through Campus every value goes at once (the relay batches). `iot_send_now`
+  stays hidden. In the simulator values wait until a dashboard is named.
 - **D4 — `read` without an addressee returns only values to everyone or to this device** (the handlers' rule);
   with an explicit `to` it returns exactly that addressee.
 - **D5 — plain MakeCode without Campus (resolved 2026-10-13).** A shadow id without a block is not a cosmetic

@@ -1,6 +1,6 @@
 {
     "name": "iot",
-    "version": "0.1.3",
+    "version": "0.2.0",
     "description": "IoT for Calliope mini: send and receive data with a Calliope Campus dashboard over WiFi, USB, BLE and in the simulator",
     "license": "MIT",
     "dependencies": {

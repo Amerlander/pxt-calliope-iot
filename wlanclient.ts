@@ -7,8 +7,13 @@
  *
  *  - ONE background fiber does bring-up, join and rejoin. State machine:
  *        OFF -> WAKING -> JOINING -> ONLINE -> LOST -> JOINING ...
+ *                                     ONLINE -> SLEEPING -> JOINING ...
  *    WIFI DISCONNECT sets LOST at once; rejoin backs off 1 s .. 30 s; a
  *    module reset ("ready", counted by the engine) re-runs the bring-up.
+ *  - sleep() switches the radio off (AT+CWQAP, AT+CWMODE=0); the module stays
+ *    awake on its UART. postIngest() wakes it by itself: radio on, join, then
+ *    the request. No deep sleep (AT+GSLP): waking from it early needs the
+ *    module's reset line, which the four-wire Grove cable does not carry.
  *  - A module that answers nothing gets a recovery ladder before the client
  *    gives up with "no-module" (see recover()): the module keeps its power
  *    when the Calliope is reset or reflashed, so it may still wait for the
@@ -43,6 +48,7 @@ namespace iotwifi {
     export const JOINING = 2
     export const ONLINE = 3
     export const LOST = 4
+    export const SLEEPING = 5
 
     // ---- engine constants (wlanshims.ts / wlanat.h) --------------------------
     // Results as plain numbers: the Node tests load this file without the
@@ -87,6 +93,8 @@ namespace iotwifi {
     /** recovery: the whole ladder; with the first wake (3 s) a bring-up attempt stays near 15 s */
     const RECOVER_MS = 12000
     const READY_MS = 3000
+    /** waking from sleep: radio on + join, then the request (postIngest waits this long) */
+    const WAKE_MS = JOIN_MS + 5000
 
     // ---- state ------------------------------------------------------------
     let st = OFF
@@ -125,6 +133,8 @@ namespace iotwifi {
     let recBytes = 0
     let recMs = 0
     let recBusy = false
+    /** the radio was switched off by sleep(): the next join turns it on first */
+    let radioOff = false
 
     // =========================================================================
     // Public API
@@ -145,6 +155,7 @@ namespace iotwifi {
         // before the fiber can open (or redirect) a UART: from now on the core
         // leaves USB serial alone
         iotcore.setWlanSender(postIngest)
+        iotcore.setWlanSleeper(sleep)
         if (!started) {
             started = true
             st = WAKING
@@ -170,7 +181,7 @@ namespace iotwifi {
         return st == ONLINE
     }
 
-    /** OFF 0, WAKING 1, JOINING 2, ONLINE 3, LOST 4 */
+    /** OFF 0, WAKING 1, JOINING 2, ONLINE 3, LOST 4, SLEEPING 5 */
     export function state(): number {
         return st
     }
@@ -180,7 +191,41 @@ namespace iotwifi {
         if (st == JOINING) return "joining"
         if (st == ONLINE) return "online"
         if (st == LOST) return "lost"
+        if (st == SLEEPING) return "sleeping"
         return "off"
+    }
+
+    /**
+     * Switch the module's radio off: leave the network and turn WiFi off. The
+     * module stays awake on its UART, so waking needs no extra line. Only from
+     * ONLINE; in every other state there is no connection to save power on,
+     * and the next request would rejoin anyway. Blocks for the two commands
+     * (well under a second); waits for a running POST first.
+     */
+    export function sleep(): void {
+        if (st != ONLINE) return
+        if (!lock()) return
+        // SLEEPING first: the WIFI DISCONNECT that CWQAP causes must not be
+        // taken for a lost connection (pollUrcs only acts on ONLINE).
+        st = SLEEPING
+        radioOff = true
+        iotwlan.command("AT+CWQAP", 3000)
+        if (family == FAMILY_AT1) iotwlan.command("AT+CWMODE_CUR=0", 2000)
+        else iotwlan.command("AT+CWMODE=0", 2000)
+        while (iotwlan.takeUrc() > 0) { }
+        locked = false
+    }
+
+    /** Wake from sleep: radio on and rejoin, done by the fiber. Returns at once. */
+    export function wakeUp(): void {
+        if (st != SLEEPING) return
+        st = JOINING
+        nextTry = 0
+        backoff = BACKOFF_MIN
+    }
+
+    export function isSleeping(): boolean {
+        return st == SLEEPING
     }
 
     /**
@@ -282,6 +327,9 @@ namespace iotwifi {
         checkReset()
         pollUrcs()
         const now = control.millis()
+        // Asleep: no link checks (they would find "not connected" and rejoin).
+        // A module reset while asleep is still caught by checkReset above.
+        if (st == SLEEPING) return 500
         if (st == ONLINE) {
             if (!(now - lastCheck < CHECK_MS)) {
                 locked = true
@@ -301,6 +349,12 @@ namespace iotwifi {
         if (st == WAKING) ok = bringUp()
         if (ok) {
             st = JOINING
+            if (radioOff) {
+                // back from sleep: WiFi on before the join
+                if (family == FAMILY_AT1) iotwlan.command("AT+CWMODE_CUR=1", 2000)
+                else iotwlan.command("AT+CWMODE=1", 2000)
+                radioOff = false
+            }
             ok = join()
         }
         // A join of a connected module prints WIFI DISCONNECT before the new
@@ -394,6 +448,11 @@ namespace iotwifi {
         iotwlan.command("AT+CIPDINFO=0", 1000)
         // "ERR CODE:0x..." lines tell the HTTP status of a failed HTTPCPOST
         if (family == FAMILY_ESPAT) iotwlan.command("AT+SYSLOG=1", 1000)
+        // Modem sleep (radio off between the access point's beacons) is the
+        // ESP-AT default, but not stored: an earlier program may have turned
+        // it off, and it stays off until the module restarts. Set, not assumed.
+        // (AT 1.x numbers its modes differently; left alone there.)
+        if (family == FAMILY_ESPAT) iotwlan.command("AT+SLEEP=1", 1000)
         // Probed, not assumed: ESP-AT has it, AT 1.7 may, AT 1.6 answers ERROR.
         passive = iotwlan.command("AT+CIPRECVMODE=1", 1000) == R_OK
         return true
@@ -627,6 +686,15 @@ namespace iotwifi {
         if (portOpen) {
             checkReset()
             pollUrcs()
+        }
+        if (st == SLEEPING) {
+            // A value to send wakes the module: radio on and join (the fiber
+            // does it), then this request. A few seconds; the core waits.
+            wakeUp()
+            const t = control.millis()
+            // isOnline(), not `st != ONLINE`: inside this branch TypeScript
+            // narrows st to SLEEPING and would reject the comparison.
+            while (!isOnline() && control.millis() - t < WAKE_MS) basic.pause(50)
         }
         if (st != ONLINE) {
             a.error = "offline"

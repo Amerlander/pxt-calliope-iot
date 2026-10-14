@@ -299,6 +299,7 @@ export class FakeNet {
     /** Brown-out / watchdog: the module reboots and forgets everything. */
     reboot(ms = 300) {
         this.joined = null;
+        this.radioOff = false; // SYSSTORE=0: the mode from flash (station) comes back
         this.link = null;
         this.f.passiveBuf = "";
         this.f.recvMode = 0;
@@ -336,6 +337,7 @@ export class FakeNet {
             f.on("AT+SYSSTORE=0", ok);
             f.on("AT+CWMODE=1", ok);
             f.on("AT+SYSLOG=1", ok);
+            f.on("AT+SLEEP=1", ok);
             f.on(/^AT\+CIPSSLCSNI=/, ok);
             f.on(/^AT\+CWJAP=(.*)$/, (l, m) => this.join(atParams(m[1]), false));
             f.on("AT+CWSTATE?", () => f.reply([`+CWSTATE:${this.joined ? 2 : 0},"${this.joined ?? ""}"\r\n\r\nOK\r\n`]));
@@ -343,6 +345,15 @@ export class FakeNet {
                 ? `+CWJAP:"${this.joined}","${BSSID}",6,${this.rssi},0,1,3,0,1\r\n\r\nOK\r\n` : "No AP\r\n\r\nOK\r\n"]]));
             f.on(/^AT\+HTTPCPOST="([^"]+)",(\d+),1,"Content-Type: application\/json"$/, (l, m) => this.httpcpost(m[1], +m[2]));
         }
+        // Sleep: leave the network and switch the radio off; a join with the
+        // radio off fails (the client switches it on first).
+        f.on("AT+CWQAP", () => {
+            const was = this.joined;
+            this.joined = null;
+            f.reply(was ? [[60, "WIFI DISCONNECT\r\n"], [80, "\r\nOK\r\n"]] : ["OK\r\n"]);
+        });
+        f.on(at1 ? "AT+CWMODE_CUR=0" : "AT+CWMODE=0", () => { this.radioOff = true; ok(); });
+        f.on(at1 ? "AT+CWMODE_CUR=1" : "AT+CWMODE=1", () => { this.radioOff = false; ok(); });
         f.on("AT+CIPMUX=0", ok);
         f.on("AT+CIPMODE=0", ok);
         f.on("AT+CIPDINFO=0", ok);
@@ -372,6 +383,7 @@ export class FakeNet {
             steps.push([ms, at1 ? `+CWJAP_CUR:${code}\r\n\r\nFAIL\r\n` : `+CWJAP:${code}\r\n\r\nERROR\r\n`]);
             f.reply(steps);
         };
+        if (this.radioOff) return f.reply(["ERROR\r\n"]);
         if (!this.ap.present || ssid !== this.ap.ssid) return fail(3, 3000);
         if (pw !== this.ap.pw) return fail(2, 4000);
         if (this.ap.outcome === "timeout") return fail(1, 15000);

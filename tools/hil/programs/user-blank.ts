@@ -24,7 +24,7 @@ iot.onSent("temperatur", function (feed, value, to) {
 })
 iot.connectWifi("$SSID", "$PW")
 iot.connectDashboard("$REF", "$SERVER")
-iot.setInterval(IotInterval.EverySecond)
+iot.syncEvery(IotSync.Every2Seconds)
 basic.forever(function () {
     iot.send("temperatur", input.temperature(), iot.target(IotTarget.All))
 })

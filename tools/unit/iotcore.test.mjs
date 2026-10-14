@@ -16,7 +16,7 @@ test("overflow during an in-flight request removes by id, not by position", () =
     const calls = r.wlan(() => r.ok());
     const sent = [];
     r.core.onSent("", (feed, v) => sent.push(v));
-    r.core.setInterval(5000);
+    r.core.setSync(5000);
     for (let i = 0; i < 8; i++) r.core.send("f", i);
     r.step(100, { fibersToo: false }); // batch frozen, sender fiber queued: in flight
     assert.equal(calls.length, 0);
@@ -38,7 +38,7 @@ test("overflow during an in-flight request removes by id, not by position", () =
 test("partial overflow during a request keeps every unsent point", () => {
     const r = rig();
     const calls = r.wlan(() => r.ok());
-    r.core.setInterval(1000);
+    r.core.setSync(1000);
     for (let i = 0; i < 8; i++) r.core.send("f", i);
     r.step(100, { fibersToo: false });
     for (let i = 0; i < 20; i++) r.core.send("f", 100 + i); // drops ids 1..4 only
@@ -59,7 +59,7 @@ test("buffer keeps the newest 24 points", () => {
 test("a batch holds at most BATCH_MAX points and respects the byte budget", () => {
     const r = rig();
     const calls = r.wlan(() => r.ok());
-    r.core.setInterval(1000);
+    r.core.setSync(1000);
     for (let i = 0; i < 12; i++) r.core.send("f", i);
     r.run(2500);
     assert.equal(calls[0].feeds.length, 8);
@@ -67,7 +67,7 @@ test("a batch holds at most BATCH_MAX points and respects the byte budget", () =
 
     const r2 = rig();
     const calls2 = r2.wlan(() => r2.ok());
-    r2.core.setInterval(1000);
+    r2.core.setSync(1000);
     const big = "x".repeat(160);
     for (let i = 0; i < 6; i++) r2.core.sendText("t", big);
     r2.run(1500);
@@ -78,7 +78,7 @@ test("a batch holds at most BATCH_MAX points and respects the byte budget", () =
 test("a retry resends the same frozen batch: same seq, same points, same boot", () => {
     const r = rig();
     const calls = r.wlan((c, n) => (n === 1 ? r.fail("wifi") : r.ok()));
-    r.core.setInterval(5000);
+    r.core.setSync(5000);
     r.core.send("a", 1);
     r.core.send("b", 2);
     r.step(); // attempt 1 fails
@@ -155,7 +155,7 @@ test("labels: the typed spelling goes in the batch until the server confirmed it
     const r = rig();
     let n = 0;
     const calls = r.wlan(() => (++n === 1 ? r.fail("timeout") : r.ok()));
-    r.core.setInterval(1000);
+    r.core.setSync(1000);
     r.core.send("Licht", 1);
     r.core.send("licht", 2);
     r.core.send("temp", 3);
@@ -175,7 +175,7 @@ test("labels: the typed spelling goes in the batch until the server confirmed it
 test("WLAN floor: 'immediately' means at most one request per second", () => {
     const r = rig();
     const calls = r.wlan(() => r.ok());
-    r.core.setInterval(0);
+    r.core.setSync(0);
     for (let t = 0; t < 6000; t += 100) {
         r.core.send("f", t);
         r.step();
@@ -187,7 +187,7 @@ test("WLAN floor: 'immediately' means at most one request per second", () => {
 test("a full buffer goes early but never under the floor", () => {
     const r = rig();
     const calls = r.wlan(() => r.ok());
-    r.core.setInterval(3600000);
+    r.core.setSync(3600000);
     r.step(); // first request (clock + snapshot)
     for (let t = 0; t < 5000; t += 100) {
         for (let k = 0; k < 10; k++) r.core.send("f", k);
@@ -237,7 +237,7 @@ test("too_fast is pacing: no error state, no back-off, the batch goes after retr
         if (n === 2) return r.fail("too_fast", { retryAfterMs: 1000 });
         return r.ok();
     });
-    r.core.setInterval(1000);
+    r.core.setSync(1000);
     r.step(); // first request (clock)
     r.core.send("f", 7);
     for (let t = 0; t < 5000 && n < 2; t += 100) r.step(); // second request: 429
@@ -254,10 +254,10 @@ test("too_fast is pacing: no error state, no back-off, the batch goes after retr
 test("NaN or omitted interval keeps the previous one; the loop never goes silent", () => {
     const r = rig();
     const calls = r.wlan(() => r.ok());
-    r.core.setInterval(3000);
-    r.core.setInterval(NaN);
-    r.core.setInterval(undefined);
-    r.core.setInterval(-5);
+    r.core.setSync(3000);
+    r.core.setSync(NaN);
+    r.core.setSync(undefined);
+    r.core.setSync(-5);
     r.step(); // first request (clock)
     for (let t = 0; t < 10000; t += 100) {
         if (t % 500 === 0) r.core.send("f", t);
@@ -270,7 +270,7 @@ test("NaN or omitted interval keeps the previous one; the loop never goes silent
 
 test("Campus: interval 0 sends every value at the next tick", () => {
     const r = rig();
-    r.core.setInterval(0);
+    r.core.setSync(0);
     r.run(400);
     r.core.send("f", 1);
     r.step();
@@ -280,13 +280,13 @@ test("Campus: interval 0 sends every value at the next tick", () => {
 test("an idle WLAN program polls only when it reads something or needs the clock", () => {
     const r = rig();
     const calls = r.wlan(() => r.ok({ serverSec: 1790000000, tzoMin: 120 }));
-    r.core.setInterval(1000);
+    r.core.setSync(1000);
     r.run(5000);
     assert.equal(calls.length, 1, "one request for the clock, then silence");
     r.core.onNumber("soll", r.core.WHO_DASHBOARD, () => {});
     r.run(5000);
-    // Idle polls every 2 s (IDLE_POLL_MS), not every interval.
-    assert.ok(calls.length >= 3 && calls.length <= 4, `a reading program polls every 2 s: ${calls.length}`);
+    // A program that receives asks every sync interval (1 s here).
+    assert.ok(calls.length >= 5, `a reading program polls: ${calls.length}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -303,17 +303,17 @@ test("the cursor advances only after the rows were dispatched, and only on ok", 
         if (n === 2) return r.fail("http-500", { cur: 99, dFeeds: ["soll"], dValues: ["666"], dFroms: ["0"], dTos: [""] });
         return r.ok({ cur: 50 });
     });
-    r.core.setInterval(1000);
+    r.core.setSync(1000);
     r.run(200);
     assert.equal(calls[0].since, 0);
     assert.deepEqual(got, [[7, "0"], [8, "123"]]);
     assert.equal(r.core.read("soll", "0"), 7);
-    r.run(2200); // idle poll every 2 s
+    r.run(1200);
     assert.equal(calls[1].since, 42, "next request continues from cur");
     r.run(3000);
     assert.equal(calls[2].since, 42, "a failed answer moves nothing");
     assert.ok(!got.some(([v]) => v === 666), "rows of a failed answer are not dispatched");
-    r.run(2200);
+    r.run(1200);
     assert.equal(calls[3].since, 50);
 });
 
@@ -322,7 +322,7 @@ test("more asks again at the floor instead of a whole interval later", () => {
     let n = 0;
     const calls = r.wlan(() => (++n === 1 ? r.ok({ cur: 10, more: true }) : r.ok({ cur: 20 })));
     r.core.onNumber("x", r.core.WHO_DASHBOARD, () => {});
-    r.core.setInterval(30000);
+    r.core.setSync(30000);
     r.run(3000);
     assert.equal(calls.length, 2);
     const g = calls[1].t - calls[0].t;
@@ -484,22 +484,51 @@ test("D3: a value after a quiet spell goes at once", () => {
     assert.deepEqual(calls[1].values, ["2"]);
 });
 
-test("D3: values in quick succession are collected and go together after 5 s", () => {
+test("D3: values that come before the next sync are collected and go together then", () => {
     const r = rig();
     const calls = r.wlan(() => clockOk(r));
     r.core.send("a", 1);
     r.run(300);
     assert.equal(calls.length, 1, "the first goes at once");
-    for (let i = 2; i <= 5; i++) {
-        r.core.send("a", i); // one per second, each within a second of the last request
-        r.run(1000);
-    }
-    assert.equal(calls.length, 1, "collected, not one request per value");
-    r.run(1500);
+    r.core.send("a", 2);
+    r.run(700);
+    r.core.send("a", 3);
+    r.run(500);
+    assert.equal(calls.length, 1, "collected until the next sync (2 s by default)");
+    r.run(800);
     assert.equal(calls.length, 2);
-    assert.deepEqual(calls[1].values, ["2", "3", "4", "5"]);
+    assert.deepEqual(calls[1].values, ["2", "3"]);
     const g = gaps(calls)[0];
-    assert.ok(g >= 5000 && g <= 5400, `the batch left when the oldest had waited 5 s: ${g} ms`);
+    assert.ok(g >= 2000 && g <= 2200, `the batch left at the next sync: ${g} ms`);
+});
+
+test("D3: the sync interval bounds the requests — every minute: one request per minute", () => {
+    const r = rig();
+    const calls = r.wlan(() => clockOk(r));
+    r.core.setSync(60000);
+    r.core.send("a", 0);
+    r.run(300);
+    for (let i = 1; i <= 5; i++) {
+        r.core.send("a", i);
+        r.run(10000);
+    }
+    assert.equal(calls.length, 1, "nothing before the minute is over");
+    r.run(11000);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[1].values, ["1", "2", "3", "4", "5"]);
+});
+
+test("D3: only send — a program that receives does not ask when it has nothing to send", () => {
+    const r = rig();
+    const calls = r.wlan(() => clockOk(r));
+    r.core.onNumber("licht", r.core.WHO_DASHBOARD, () => {});
+    r.core.setSync(2000, true);
+    r.run(300); // first request (clock)
+    r.run(10000);
+    assert.equal(calls.length, 1, "no polls");
+    r.core.send("a", 1);
+    r.run(300);
+    assert.equal(calls.length, 2, "a value still goes at once");
 });
 
 test("D3: a full request's worth (8 values) goes at once", () => {
@@ -513,18 +542,60 @@ test("D3: a full request's worth (8 values) goes at once", () => {
     assert.equal(calls[1].values.length, 8);
 });
 
-test("D3: a program that receives collects for at most 2 s (the answer is its downlink)", () => {
+test("sync of a minute or more: the radio goes off after each sync once nothing waits", () => {
+    const r = rig();
+    const calls = r.wlan(() => clockOk(r));
+    let sleeps = 0;
+    r.core.setWlanSleeper(() => sleeps++);
+    r.core.setSync(60000);
+    r.core.send("a", 1);
+    r.run(500);
+    assert.equal(calls.length, 1);
+    assert.equal(sleeps, 1, "asleep after the sync");
+    r.core.send("a", 2);
+    r.run(61000);
+    assert.equal(calls.length, 2, "the next sync (the sender wakes the module)");
+    assert.equal(sleeps, 2);
+});
+
+test("sync below a minute: the radio stays on", () => {
+    const r = rig();
+    r.wlan(() => clockOk(r));
+    let sleeps = 0;
+    r.core.setWlanSleeper(() => sleeps++);
+    r.core.setSync(10000);
+    r.core.send("a", 1);
+    r.run(25000);
+    assert.equal(sleeps, 0);
+});
+
+test("the sleep block: no polls until a value comes; that value goes and polling resumes", () => {
+    const r = rig();
+    const calls = r.wlan(() => clockOk(r));
+    let sleeps = 0;
+    r.core.setWlanSleeper(() => sleeps++);
+    r.core.onNumber("licht", r.core.WHO_DASHBOARD, () => {});
+    r.run(300); // first request (clock)
+    r.core.sleepNow();
+    assert.equal(sleeps, 1);
+    const n = calls.length;
+    r.run(10000);
+    assert.equal(calls.length, n, "no polls while asleep");
+    r.core.send("a", 1);
+    r.run(300);
+    assert.equal(calls.length, n + 1, "the value goes (the sender wakes the module)");
+    r.run(4100);
+    assert.ok(calls.length >= n + 3, `polls again after the value: ${calls.length - n}`);
+});
+
+test("D3: a program that receives asks every sync interval when it has nothing to send", () => {
     const r = rig();
     const calls = r.wlan(() => clockOk(r));
     r.core.onNumber("licht", r.core.WHO_DASHBOARD, () => {});
-    r.core.send("a", 1);
     r.run(300);
     const before = calls.length;
-    r.core.send("a", 2);
-    r.run(2600);
-    const sent = calls.slice(before).filter((c) => c.values.length > 0);
-    assert.equal(sent.length, 1, "the collected value left within the 2 s window");
-    assert.deepEqual(sent[0].values, ["2"]);
+    r.run(6100);
+    assert.equal(calls.length - before, 3, "every 2 s by default");
 });
 
 test("own id coming back over any downlink is ignored", () => {
@@ -599,7 +670,7 @@ test("server normalisation and the ingest context", () => {
 test("values: numbers stay numbers, text is JSON-escaped, NaN and Infinity are 0", () => {
     const r = rig();
     const calls = r.wlan(() => r.ok());
-    r.core.setInterval(1000);
+    r.core.setSync(1000);
     r.core.send("n", 21.123456);
     r.core.send("n", NaN);
     r.core.send("n", Infinity);
@@ -634,13 +705,13 @@ test("a scope change during a request starts a fresh snapshot; the old answer's 
     let n = 0;
     const calls = r.wlan(() => (++n === 1 ? r.ok({ cur: 42 }) : r.ok({ cur: 60 + n })));
     r.core.onNumber("x", r.core.WHO_DASHBOARD, () => {});
-    r.core.setInterval(1000);
-    r.run(2200); // idle poll every 2 s
+    r.core.setSync(1000);
+    r.run(1200);
     assert.equal(calls[1].since, 42);
-    r.step(2000, { fibersToo: false }); // request 3 in flight with since=…
+    r.step(1000, { fibersToo: false }); // request 3 in flight with since=…
     r.core.onNumber("y", r.core.WHO_OTHERS, () => {}); // wider scope: snapshot wanted
     r.runFibers(); // the in-flight answer brings cur=63 for the OLD question
-    r.run(2200);
+    r.run(1200);
     const next = calls[calls.length - 1];
     assert.equal(next.scope, "a");
     assert.equal(next.since, 0, "fresh snapshot for the new scope");

@@ -7,11 +7,13 @@ iot.connectWifi("school-wifi", "secret123")
 iot.connectWifi("school-wifi", "secret123", SerialPin.C17, SerialPin.C16)
 iot.connectDashboard("weather-station")
 iot.connectDashboard("weather-station", "https://campus-api.calliope.cc")
-iot.setInterval(IotInterval.Immediately)
-iot.setInterval(IotInterval.EverySecond)
-iot.setInterval(IotInterval.Every5Seconds)
-iot.setInterval(IotInterval.EveryMinute)
-iot.setInterval(IotInterval.EveryHour)
+iot.syncEvery(IotSync.Every2Seconds)
+iot.syncEvery(IotSync.Every5Seconds)
+iot.syncEvery(IotSync.Every10Seconds)
+iot.syncEvery(IotSync.EveryMinute, IotSyncMode.OnlySend)
+iot.syncEvery(IotSync.Every10Minutes, IotSyncMode.SendAndReceive)
+iot.syncEvery(IotSync.EveryHour)
+iot.sleepWifi()
 
 // Send
 iot.send("temperature", input.temperature())
@@ -44,6 +46,7 @@ if (iot.timeKnown()) {
 // Diagnosis
 if (iot.status() == iot.statusValue(IotStatus.Connected)) n++
 if (iot.status() == IotStatus.NoWifiModule) n--
+if (iot.status() == IotStatus.Sleeping) n--
 if (iot.wifiConnected()) n += iot.wifiSignal()
 s += iot.lastError() + iot.deviceName() + iot.moduleVersion() + iot.moduleInfo()
 iot.log(s + n)

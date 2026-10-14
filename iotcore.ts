@@ -63,20 +63,19 @@ namespace iotcore {
     const REF_MAX = 120
     const SERVER_MAX = 100
 
-    // Without an interval block a value after a quiet spell goes at once (over
-    // WLAN at the floor below), and values that follow each other closely are
-    // collected and go together (collectWindow). Through Campus every value
-    // goes at the next tick: the relay batches once per second itself. (Was a
-    // fixed 5 s until v0.1.1, decision D3.)
-    const INTERVAL_DEFAULT_MS = 0
-    // With nothing to send, the request is only a question for downlink values
-    // and the clock (and only made when the program reads or needs the time).
-    // Every 2 s: a dashboard button reaches the mini within ~2 s, and a class
-    // of idle readers stays far below the server's per-dashboard guard.
-    const IDLE_POLL_MS = 2000
-    // Collecting values that follow each other within a second: see collectWindow().
-    const COLLECT_MS = 5000
-    const COLLECT_READING_MS = 2000
+    // How often the mini syncs with the dashboard over WLAN (the sync block,
+    // decision D3): at most one request per sync interval. A request carries
+    // the collected values and brings the dashboard's new values back. A value
+    // after a quiet spell goes at once (that costs no extra request); values
+    // that come sooner are collected until the next sync, or go at the floor
+    // once a full request's worth (8) is there. A program that receives also
+    // asks every interval when it has nothing to send — unless it is set to
+    // "only send" or the module was put to sleep. Through Campus every value
+    // goes at once: the relay batches once per second itself.
+    const SYNC_DEFAULT_MS = 2000
+    // From one minute on, the radio goes off after each sync and on again for
+    // the next one (wlanclient sleep/wake; rejoining takes a few seconds).
+    const AUTO_SLEEP_MS = 60000
     // The server takes about one batch per device per second (900 ms bucket).
     // "Immediately" over WLAN therefore means 1 s. The floor applies in the
     // loop, not when the interval is set: block order is not guaranteed, and a
@@ -129,8 +128,11 @@ namespace iotcore {
     let started = false
     let ref = ""
     let server = DEFAULT_SERVER
-    let intervalMs = INTERVAL_DEFAULT_MS
-    let nextFlushMs = 0
+    let syncMs = SYNC_DEFAULT_MS
+    let sendOnly = false
+    let lastLaunchMs = 0
+    // the sleep block was used: no requests that only ask, until a value comes
+    let manualSleep = false
     let lastSendMs = 0
     let retryAtMs = 0
     let backoffMs = 0
@@ -237,7 +239,6 @@ namespace iotcore {
         if (started) return
         started = true
         bootId = makeBootId()
-        nextFlushMs = control.millis() + intervalMs
         helloDue = true
         control.inBackground(coreLoop)
     }
@@ -270,19 +271,6 @@ namespace iotcore {
         dispatch()
     }
 
-    /**
-     * How long values that follow each other closely are collected before
-     * they go together (WLAN, no interval block). 5 s for a program that only
-     * sends: one request then carries up to 8 values instead of one request
-     * per second, which is what keeps a class of 30 minis well below the
-     * server's per-dashboard guard. 2 s for a program that also receives:
-     * every request brings the dashboard's values back, and a button on the
-     * dashboard must not take 5 s to reach the mini.
-     */
-    function collectWindow(): number {
-        return wantDashboard || wantDevices ? COLLECT_READING_MS : COLLECT_MS
-    }
-
     /** True when points go over WLAN: a sender is registered and this is not the simulator. */
     export function usesWlan(): boolean {
         // The simulator has no WiFi module; its transport is the panel, which
@@ -301,9 +289,7 @@ namespace iotcore {
             // buffer (the device does not: Campus takes the open program's
             // dashboard when the reference is empty).
             if (isSimulator() && ref == "") return
-            if (!urgent && now < nextFlushMs) return
             urgent = false
-            nextFlushMs = now + intervalMs
             lastSendMs = now
             flushCampus()
             return
@@ -321,19 +307,13 @@ namespace iotcore {
             launch(now)
             return
         }
-        if (!urgent) {
-            if (pId.length > 0 && intervalMs == 0) {
-                // Collecting: the values go together once the oldest has
-                // waited the window (or a full request's worth is there,
-                // which sets `urgent`).
-                if (now < pTime[0] + collectWindow()) return
-            } else if (now < nextFlushMs) return
-        }
+        if (!urgent && now < lastLaunchMs + syncMs) return
+        // Nothing to send: ask anyway when the program receives (and is not
+        // set to "only send", and the module was not put to sleep) or still
+        // needs the clock, because the answer is the only downlink.
+        const ask = !clockKnown || (!sendOnly && !manualSleep && (wantDashboard || wantDevices))
         urgent = false
-        nextFlushMs = now + Math.max(intervalMs, pId.length > 0 ? WLAN_FLOOR_MS : IDLE_POLL_MS)
-        // Nothing to send: ask anyway when the program reads something or
-        // still needs the clock, because the answer is the only downlink.
-        if (pId.length == 0 && !wantDashboard && !wantDevices && clockKnown) return
+        if (pId.length == 0 && !ask) return
         freeze()
         launch(now)
     }
@@ -403,6 +383,7 @@ namespace iotcore {
         inFlight = true
         inFlightSince = now
         lastSendMs = now
+        lastLaunchMs = now
         state = STATE_SENDING
         control.inBackground(function () {
             const a = fn(b, ctx)
@@ -466,6 +447,12 @@ namespace iotcore {
         // The server holds more than fit: ask again at the floor, not a whole
         // interval later.
         if (a.more) urgent = true
+        // From a minute on, the radio goes off until the next sync once
+        // nothing waits any more; the sender wakes it for the next request.
+        if (syncMs >= AUTO_SLEEP_MS && pId.length == 0 && !a.more) {
+            const sleep = iotcore.wlanSleeper()
+            if (sleep) sleep()
+        }
     }
 
     function resetCursor(): void {
@@ -515,18 +502,34 @@ namespace iotcore {
     }
 
     /**
-     * How often the buffer is flushed, in ms; 0 = every value at once (1 s
-     * over WLAN). A NaN or omitted value keeps the previous interval.
+     * How often the mini syncs with the dashboard over WLAN, in ms (at least
+     * 1 s): at most one request per interval. `onlySend`: no requests that
+     * only ask for new values. A NaN or omitted interval keeps the previous one.
      */
-    export function setInterval(ms: number): void {
+    export function setSync(ms: number, onlySend?: boolean): void {
         // NOT `ms == undefined`: pxt compares numerically, an omitted argument
-        // is NaN and NaN == NaN is false. That check once let NaN through, the
-        // next flush time became NaN, and `now >= NaN` is never true: no
-        // request ever left. `!(ms >= 0)` is false for NaN and undefined alike.
+        // is NaN and NaN == NaN is false. `!(ms >= 0)` is false for NaN and
+        // undefined alike.
         if (!(ms >= 0)) return
         start()
-        intervalMs = ms
-        nextFlushMs = control.millis() + ms
+        syncMs = ms < WLAN_FLOOR_MS ? WLAN_FLOOR_MS : ms
+        sendOnly = onlySend ? true : false
+    }
+
+    /** The sync interval in ms (default 2 s). */
+    export function syncInterval(): number {
+        return syncMs
+    }
+
+    /**
+     * The sleep block: the module's radio off now (WLAN only). Until the next
+     * value no request goes out just to ask; that value wakes the module.
+     */
+    export function sleepNow(): void {
+        if (!usesWlan()) return
+        manualSleep = true
+        const sleep = iotcore.wlanSleeper()
+        if (sleep) sleep()
     }
 
     /** `server` as the ingest base URL: scheme + host + path, no trailing slash. */
@@ -609,13 +612,8 @@ namespace iotcore {
         // scope), so this is the only source for the own sender and nothing
         // can fire twice.
         accept(key, raw, deviceId(), toKey)
-        // Without an interval block: a value after a quiet spell goes at once
-        // (it is the only one waiting, nothing is in flight, the last request
-        // is a floor ago). One that follows closer is collected — see
-        // collectWindow() — and goes with the others in one request.
-        if (intervalMs == 0 && pId.length == 1 && !inFlight && !(control.millis() < lastSendMs + WLAN_FLOOR_MS)) {
-            urgent = true
-        }
+        // A value to send ends a sleep set by the sleep block.
+        manualSleep = false
         // A full request's worth goes at once: waiting longer would only make
         // the next one bigger than a request can carry.
         if (pId.length >= iotcore.BATCH_MAX) urgent = true
