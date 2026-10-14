@@ -22,7 +22,7 @@ on them instead.
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_send` | `iot.send(feed, value, to?)` | `send $feed = $value \|\| to $to` | `sende $feed = $value \|\| an $to` | Queued, sent in the interval. `to`: shadow `iot_target` (all / dashboard) or a device id. The same feed to the same receiver at most every 250 ms: called sooner, the block waits for the rest (a forever loop without a pause otherwise queued ~50 values/s while ~8/s leave over WiFi). Different feeds never wait for each other. Same rule for `send text`. |
+| `iot_send` | `iot.send(feed, value, to?)` | `send $feed = $value \|\| to $to` | `sende $feed = $value \|\| an $to` | Queued, sent in the interval. `to`: shadow `iot_target` (all / dashboard) or a device id. The same feed to the same receiver at most once per second: called sooner, the block waits for the rest (a forever loop without a pause otherwise queued ~50 values/s, each a row on the server). Different feeds never wait for each other. Same rule for `send text`. |
 | `iot_send_text` | `iot.sendText(feed, text, to?)` | `send text $feed = $text \|\| to $to` | `sende Text $feed = $text \|\| an $to` | Text capped at 160 bytes. |
 | `iot_send_now` | `iot.sendNow()` | `send now` | `sende jetzt` | Flush without waiting for the interval (still ≥ 1 s on WLAN). **Hidden since v0.1.2** (D3). |
 | `iot_on_sent` | `iot.onSent(feed, handler(feed, value, to))` | `on $feed sent` | `wenn $feed gesendet` | Fires only after the server confirmed. Empty feed = every feed (the feed field starts empty). |
@@ -79,12 +79,15 @@ Advanced (`//% advanced=true`): module firmware version, module info.
 
 ## Decisions (2026-10-13)
 
-- **D3 — no interval block (changed in v0.1.2, was: default 5 s).** Every value goes as soon as it may: over
-  WiFi at most one request per second (counted from the previous answer), through Campus at once (the relay
-  batches once per second). With nothing to send, a program that reads or still needs the clock asks every
-  2 s, so a dashboard value reaches the mini within ~2 s. The buffer keeps values against loss, not back on
-  purpose. `iot_interval` and `iot_send_now` are hidden (still in the API; programs containing them open).
-  In the simulator values wait in the buffer until a dashboard is named — the panel does not exist before.
+- **D3 — no interval block (v0.1.2/v0.1.3, was: default 5 s).** Over WiFi a value after a quiet spell goes at
+  once (one request per second at most, counted from the previous answer). Values that follow within a second of
+  the last request are collected and go together: when 8 are there (a full request) or when the oldest has waited
+  5 s — 2 s if the program also receives, because every answer brings the dashboard values back. With nothing to
+  send, a program that receives (or needs the clock) asks every 2 s. Through Campus every value goes at once (the
+  relay batches once per second). `iot_interval` and `iot_send_now` are hidden (still in the API; programs
+  containing them open and keep their meaning). In the simulator values wait until a dashboard is named.
+  Hardware (mini 3, 1 value/s with a receive block): requests 3 s apart with ~3 values each, every value
+  confirmed, 0 × 429 (v0.1.2 sent one request per ~1.2 s).
 - **D4 — `read` without an addressee returns only values to everyone or to this device** (the handlers' rule);
   with an explicit `to` it returns exactly that addressee.
 - **D5 — plain MakeCode without Campus (resolved 2026-10-13).** A shadow id without a block is not a cosmetic

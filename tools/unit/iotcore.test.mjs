@@ -465,19 +465,66 @@ test("D4: read without an addressee sees values to everyone or to me; an explici
     assert.equal(r.core.read("temp"), 6);
 });
 
-test("D3 (v0.1.2): without an interval block every value goes as soon as the floor allows", () => {
+// Without an interval block (D3, v0.1.3): a value after a quiet spell goes at
+// once; values that follow within a second of the last request are collected
+// until 8 are there or the oldest has waited 5 s (2 s when the program reads).
+// The answers carry the clock, otherwise the idle poll would ask for it.
+const clockOk = (r) => r.ok({ serverSec: 1790000000, tzoMin: 0 });
+
+test("D3: a value after a quiet spell goes at once", () => {
     const r = rig();
-    // With the clock in the answer: otherwise the idle poll asks for it again.
-    const calls = r.wlan(() => r.ok({ serverSec: 1790000000, tzoMin: 0 }));
+    const calls = r.wlan(() => clockOk(r));
     r.core.send("a", 1);
     r.run(300);
-    assert.equal(calls.length, 1, "the first request goes as soon as WiFi is there");
+    assert.equal(calls.length, 1);
+    r.run(3000); // quiet
     r.core.send("a", 2);
-    r.run(3000);
-    assert.equal(calls.length, 2, "one more request for the one value, then quiet (nothing reads)");
-    const g = gaps(calls)[0];
-    assert.ok(g >= 1000 && g <= 1300, `second request after ${g} ms`);
+    r.run(300);
+    assert.equal(calls.length, 2, "goes at the next tick, no collecting");
     assert.deepEqual(calls[1].values, ["2"]);
+});
+
+test("D3: values in quick succession are collected and go together after 5 s", () => {
+    const r = rig();
+    const calls = r.wlan(() => clockOk(r));
+    r.core.send("a", 1);
+    r.run(300);
+    assert.equal(calls.length, 1, "the first goes at once");
+    for (let i = 2; i <= 5; i++) {
+        r.core.send("a", i); // one per second, each within a second of the last request
+        r.run(1000);
+    }
+    assert.equal(calls.length, 1, "collected, not one request per value");
+    r.run(1500);
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[1].values, ["2", "3", "4", "5"]);
+    const g = gaps(calls)[0];
+    assert.ok(g >= 5000 && g <= 5400, `the batch left when the oldest had waited 5 s: ${g} ms`);
+});
+
+test("D3: a full request's worth (8 values) goes at once", () => {
+    const r = rig();
+    const calls = r.wlan(() => clockOk(r));
+    r.core.send("a", 0);
+    r.run(300);
+    for (let i = 1; i <= 8; i++) r.core.send("f" + i, i);
+    r.run(1200); // the floor still applies
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].values.length, 8);
+});
+
+test("D3: a program that receives collects for at most 2 s (the answer is its downlink)", () => {
+    const r = rig();
+    const calls = r.wlan(() => clockOk(r));
+    r.core.onNumber("licht", r.core.WHO_DASHBOARD, () => {});
+    r.core.send("a", 1);
+    r.run(300);
+    const before = calls.length;
+    r.core.send("a", 2);
+    r.run(2600);
+    const sent = calls.slice(before).filter((c) => c.values.length > 0);
+    assert.equal(sent.length, 1, "the collected value left within the 2 s window");
+    assert.deepEqual(sent[0].values, ["2"]);
 });
 
 test("own id coming back over any downlink is ignored", () => {

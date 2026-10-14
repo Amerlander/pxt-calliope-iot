@@ -183,14 +183,14 @@ namespace iot {
 
     // ---- Send ------------------------------------------------------------
 
-    // The same feed to the same receiver goes at most every SAME_FEED_GAP_MS:
-    // a send block called again sooner waits for the rest. Over WiFi about 8
-    // values per second leave (one batch of 8 per ~1.1 s); a forever loop
-    // without a pause queues ~50 per second, and what the buffer cannot hold is
-    // dropped anyway. 250 ms means 4 per feed per second, so two feeds in such
-    // a loop fill exactly what goes out. Different feeds never wait for each
-    // other: "send temperature, send light" in a row is meant that way.
-    const SAME_FEED_GAP_MS = 250
+    // The same feed to the same receiver goes at most once per second: a send
+    // block called again sooner waits for the rest. A dashboard shows a feed
+    // at about that rate anyway; a forever loop without a pause otherwise
+    // queued ~50 values per second, and every one of them is a row on the
+    // server. Waiting instead of dropping keeps every value the program sends.
+    // Different feeds never wait for each other: "send temperature, send
+    // light" in a row is meant that way.
+    const SAME_FEED_GAP_MS = 1000
     const PACE_SLOTS = 16
     let paceKeys: string[] = []
     let paceTimes: number[] = []
@@ -213,9 +213,9 @@ namespace iot {
     }
 
     /**
-     * Send a number. It is collected and goes out with the next interval. The
-     * same feed goes at most 4 times per second: called again sooner, the block
-     * waits a moment.
+     * Send a number. A single value goes at once; values in quick succession
+     * are collected and go together. The same feed goes at most once per
+     * second: called again sooner, the block waits for the rest.
      * @param feed name of the feed, for example "temperature"
      * @param value the number to send
      * @param to who gets the value: everyone, the dashboard, or a device number
@@ -232,9 +232,10 @@ namespace iot {
     }
 
     /**
-     * Send a text (at most 160 characters). It is collected and goes out with
-     * the next interval. The same feed goes at most 4 times per second: called
-     * again sooner, the block waits a moment.
+     * Send a text (at most 160 characters). A single value goes at once;
+     * values in quick succession are collected and go together. The same feed
+     * goes at most once per second: called again sooner, the block waits for
+     * the rest.
      * @param feed name of the feed, for example "message"
      * @param text the text to send
      * @param to who gets the text: everyone, the dashboard, or a device number

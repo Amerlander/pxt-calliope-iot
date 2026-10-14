@@ -63,17 +63,20 @@ namespace iotcore {
     const REF_MAX = 120
     const SERVER_MAX = 100
 
-    // Without an interval block every value goes out as soon as it may: over
-    // WLAN at the floor below, through Campus at the next tick (the relay
-    // batches once per second itself). The buffer keeps nothing back on
-    // purpose — a child expects the dashboard to move when the mini sends,
-    // not five seconds later. (Was 5 s until v0.1.1, decision D3.)
+    // Without an interval block a value after a quiet spell goes at once (over
+    // WLAN at the floor below), and values that follow each other closely are
+    // collected and go together (collectWindow). Through Campus every value
+    // goes at the next tick: the relay batches once per second itself. (Was a
+    // fixed 5 s until v0.1.1, decision D3.)
     const INTERVAL_DEFAULT_MS = 0
     // With nothing to send, the request is only a question for downlink values
     // and the clock (and only made when the program reads or needs the time).
     // Every 2 s: a dashboard button reaches the mini within ~2 s, and a class
     // of idle readers stays far below the server's per-dashboard guard.
     const IDLE_POLL_MS = 2000
+    // Collecting values that follow each other within a second: see collectWindow().
+    const COLLECT_MS = 5000
+    const COLLECT_READING_MS = 2000
     // The server takes about one batch per device per second (900 ms bucket).
     // "Immediately" over WLAN therefore means 1 s. The floor applies in the
     // loop, not when the interval is set: block order is not guaranteed, and a
@@ -267,6 +270,19 @@ namespace iotcore {
         dispatch()
     }
 
+    /**
+     * How long values that follow each other closely are collected before
+     * they go together (WLAN, no interval block). 5 s for a program that only
+     * sends: one request then carries up to 8 values instead of one request
+     * per second, which is what keeps a class of 30 minis well below the
+     * server's per-dashboard guard. 2 s for a program that also receives:
+     * every request brings the dashboard's values back, and a button on the
+     * dashboard must not take 5 s to reach the mini.
+     */
+    function collectWindow(): number {
+        return wantDashboard || wantDevices ? COLLECT_READING_MS : COLLECT_MS
+    }
+
     /** True when points go over WLAN: a sender is registered and this is not the simulator. */
     export function usesWlan(): boolean {
         // The simulator has no WiFi module; its transport is the panel, which
@@ -305,7 +321,14 @@ namespace iotcore {
             launch(now)
             return
         }
-        if (!urgent && now < nextFlushMs) return
+        if (!urgent) {
+            if (pId.length > 0 && intervalMs == 0) {
+                // Collecting: the values go together once the oldest has
+                // waited the window (or a full request's worth is there,
+                // which sets `urgent`).
+                if (now < pTime[0] + collectWindow()) return
+            } else if (now < nextFlushMs) return
+        }
         urgent = false
         nextFlushMs = now + Math.max(intervalMs, pId.length > 0 ? WLAN_FLOOR_MS : IDLE_POLL_MS)
         // Nothing to send: ask anyway when the program reads something or
@@ -586,8 +609,16 @@ namespace iotcore {
         // scope), so this is the only source for the own sender and nothing
         // can fire twice.
         accept(key, raw, deviceId(), toKey)
-        // Interval "immediately": out at the next tick.
-        if (intervalMs == 0) urgent = true
+        // Without an interval block: a value after a quiet spell goes at once
+        // (it is the only one waiting, nothing is in flight, the last request
+        // is a floor ago). One that follows closer is collected — see
+        // collectWindow() — and goes with the others in one request.
+        if (intervalMs == 0 && pId.length == 1 && !inFlight && !(control.millis() < lastSendMs + WLAN_FLOOR_MS)) {
+            urgent = true
+        }
+        // A full request's worth goes at once: waiting longer would only make
+        // the next one bigger than a request can carry.
+        if (pId.length >= iotcore.BATCH_MAX) urgent = true
         // A full buffer also goes early. The interval is a promise about the
         // delay, the buffer is a memory limit; a value sent early is better
         // than one thrown away (a gap in a chart looks like a broken sensor).
