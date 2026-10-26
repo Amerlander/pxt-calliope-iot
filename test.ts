@@ -3,6 +3,9 @@
 // use, is tools/hil/programs/blocks-all.ts.
 
 // Connection
+iot.connect("school-wifi", "secret123", "weather-station")
+iot.connect("school-wifi", "secret123", "weather-station", "https://campus-api.calliope.cc", SerialPin.C17, SerialPin.C16)
+iot.connect("", "", "")
 iot.connectWifi("school-wifi", "secret123")
 iot.connectWifi("school-wifi", "secret123", SerialPin.C17, SerialPin.C16)
 iot.connectDashboard("weather-station")
@@ -21,7 +24,7 @@ iot.send("temperature", input.temperature(), iot.target(IotTarget.Dashboard))
 iot.sendText("message", "hello")
 iot.sendText("message", "hello", iot.target(IotTarget.All))
 iot.sendNow()
-iot.onSent("", function (feed: string, value: number, to: string) {
+iot.onSent("", function (feed: string, value: number) {
     led.toggle(0, 0)
 })
 

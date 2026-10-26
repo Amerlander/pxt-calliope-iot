@@ -11,8 +11,7 @@
 // nothing secret ends up in the build directory.
 
 // Connection
-iot.connectWifi("school-wifi", "secret123", SerialPin.C17, SerialPin.C16)
-iot.connectDashboard("weather-station", "https://campus-api.calliope.cc")
+iot.connect("school-wifi", "secret123", "weather-station", "https://campus-api.calliope.cc", SerialPin.C17, SerialPin.C16)
 iot.syncEvery(IotSync.Every2Seconds)
 iot.syncEvery(IotSync.EveryMinute, IotSyncMode.OnlySend)
 iot.sleepWifi()
@@ -29,13 +28,13 @@ iot.onText("chat", iot.who(IotWho.OtherDevices), function (text, from, to) {
 })
 
 // Send
-iot.onSent("", function (feed, value, to) {
+iot.onSent("", function (feed, value) {
     led.plot(4, 0)
     basic.pause(50)
     led.unplot(4, 0)
 })
 input.onButtonPressed(Button.A, function () {
-    iot.sendText("chat", "hello from " + iot.deviceName(), iot.target(IotTarget.All))
+    iot.sendText("chat", "hello from " + iot.deviceName())
     iot.sendNow()
 })
 input.onButtonPressed(Button.B, function () {
@@ -63,7 +62,7 @@ basic.forever(function () {
     iot.send("temperature", t)
     let warm = 0
     if (t > setpoint) warm = 1
-    iot.send("too-warm", warm, iot.target(IotTarget.Dashboard))
+    iot.send("too-warm", warm)
     const mine = iot.read("temperature", iot.who(IotWho.OnlyThisDevice))
     const forMe = iot.read("setpoint", iot.who(IotWho.AllButMe), iot.who(IotWho.OnlyThisDevice))
     const last = iot.readText("chat")

@@ -14,19 +14,20 @@ on them instead.
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_wifi_connect` | `iot.connectWifi(ssid, password, tx?, rx?)` | `connect to WiFi $ssid password $password \|\| TX $tx RX $rx` | `mit WLAN $ssid Passwort $password verbinden \|\| TX $tx RX $rx` | Non-blocking. Opens the module UART after the 5 s cold-boot rule. Pins default C17/C16 (Grove A1), hidden behind "+". Its presence switches the program to WLAN. Campus fills ssid/password from the room settings (only into a completely empty block). |
-| `iot_dashboard` | `iot.connectDashboard(reference, server?)` | `connect to dashboard $reference \|\| server $server` | `mit Dashboard $reference verbinden \|\| Server $server` | Campus writes reference and server only when a dashboard is picked in the chip. Default server: `https://campus-api.calliope.cc`. |
-| `iot_sync` | `iot.syncEvery(interval: IotSync, mode?: IotSyncMode)` | `sync with dashboard every $interval \|\| $mode` | `mit Dashboard abgleichen $interval \|\| $mode` | WLAN only. At most one request per interval (it carries the collected values and brings the dashboard's new values back). `IotSync`: 2 s / 5 s / 10 s / minute / 10 minutes / hour (de labels carry the article: alle 2 Sekunden … jede Minute … jede Stunde). Without the block: 2 s. `IotSyncMode` behind "+": send and receive (default) / only send (no requests that only ask). From a minute on the module sleeps between syncs. See D3. |
+| `iot_connect` | `iot.connect(ssid, password, token, server?, tx?, rx?)` | `connect\|WiFi SSID $ssid\|password $password\|IoT token $token\|\|server $server\|TX $tx\|RX $rx` | `verbinde\|WLAN SSID $ssid\|Passwort $password\|IoT Token $token\|\|Server $server\|TX $tx\|RX $rx` | Since v0.3.0 the one connection block: one row per input (`inlineInputMode=external`), server and pins behind "+". Sets the dashboard (token = reference: slug or token, empty = Campus picks), then, with a non-empty SSID, starts WiFi and **waits** until the module is in the network: WiFi symbol building up on the LEDs, then a check mark (online) or a cross (`wrong-password`, `ap-not-found`, `no-module`, `uart-*`, mini 1/2, or 30 s passed), shown for 1 s, then the screen is cleared. The module keeps trying after a timeout. Empty SSID: Campus path, no waiting, no animation. The simulator plays one round of the animation and the check mark. |
+| `iot_wifi_connect` | `iot.connectWifi(ssid, password, tx?, rx?)` | `connect to WiFi $ssid password $password \|\| TX $tx RX $rx` | `mit WLAN $ssid Passwort $password verbinden \|\| TX $tx RX $rx` | **Hidden since v0.3.0** (kept so old programs open as blocks; `iot_connect` replaces both). Non-blocking. Opens the module UART after the 5 s cold-boot rule. Pins default C17/C16 (Grove A1), hidden behind "+". Its presence switches the program to WLAN. Campus fills ssid/password from the room settings (only into a completely empty block). |
+| `iot_dashboard` | `iot.connectDashboard(reference, server?)` | `connect to dashboard $reference \|\| server $server` | `mit Dashboard $reference verbinden \|\| Server $server` | **Hidden since v0.3.0.** Campus writes reference and server only when a dashboard is picked in the chip. Default server: `https://campus-api.calliope.cc`. |
+| `iot_sync` | `iot.syncEvery(interval: IotSync, mode?: IotSyncMode)` | `sync with dashboard every $interval \|\| $mode` | `mit Dashboard abgleichen $interval \|\| $mode` | WLAN only. In "more" (`advanced=true`) since v0.3.0. At most one request per interval (it carries the collected values and brings the dashboard's new values back). `IotSync`: 2 s / 5 s / 10 s / minute / 10 minutes / hour (de labels carry the article: alle 2 Sekunden … jede Minute … jede Stunde). Without the block: 2 s. `IotSyncMode` behind "+": send and receive (default) / only send (no requests that only ask). From a minute on the module sleeps between syncs. See D3. |
 | `iot_sleep` | `iot.sleepWifi()` | `put WiFi module to sleep` | `WLAN-Modul schlafen legen` | Radio off (AT+CWQAP, AT+CWMODE=0); the module stays reachable on its UART. The next value wakes it (radio on, join: a few seconds) and goes; until then no request goes out just to ask. Status `sleeping`. No deep sleep: waking from it early needs the module's reset line, which the Grove cable does not carry. |
 
 ## Sending
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_send` | `iot.send(feed, value, to?)` | `send $feed = $value \|\| to $to` | `sende $feed = $value \|\| an $to` | Queued, sent in the interval. `to`: shadow `iot_target` (all / dashboard) or a device id. The same feed to the same receiver at most once per second: called sooner, the block waits for the rest (a forever loop without a pause otherwise queued ~50 values/s, each a row on the server). Different feeds never wait for each other. Same rule for `send text`. |
-| `iot_send_text` | `iot.sendText(feed, text, to?)` | `send text $feed = $text \|\| to $to` | `sende Text $feed = $text \|\| an $to` | Text capped at 160 bytes. |
+| `iot_send` | `iot.send(feed, value, to?)` | `send number $value to feed $feed` | `sende Zahl $value an Feed $feed` | Queued, sent in the interval. No receiver in the block since v0.3.0 (a value from blocks goes to everyone); `to` stays in code (`iot.target(IotTarget…)` or a device id). The same feed to the same receiver at most once per second: called sooner, the block waits for the rest (a forever loop without a pause otherwise queued ~50 values/s, each a row on the server). Different feeds never wait for each other. Same rule for `send text`. |
+| `iot_send_text` | `iot.sendText(feed, text, to?)` | `send text $text to feed $feed` | `sende Text $text an Feed $feed` | Text capped at 160 bytes. |
 | `iot_send_now` | `iot.sendNow()` | `send now` | `sende jetzt` | Flush without waiting for the interval (still ≥ 1 s on WLAN). **Hidden since v0.1.2** (D3). |
-| `iot_on_sent` | `iot.onSent(feed, handler(feed, value, to))` | `on $feed sent` | `wenn $feed gesendet` | Fires only after the server confirmed. Empty feed = every feed (the feed field starts empty). |
+| `iot_on_sent` | `iot.onSent(feed, handler(feed, value))` | `on $feed sent` | `wenn $feed gesendet` | In "more" (`advanced=true`) since v0.3.0, and without the `to` parameter (the send blocks have no receiver). Fires only after the server confirmed. Empty feed = every feed (the feed field starts empty). |
 
 ## Receiving
 
@@ -37,7 +38,7 @@ on them instead.
 | `iot_read` | `iot.read(feed, from?, to?)` | `read $feed \|\| from $from to $to` | `lese $feed \|\| von $from an $to` | From the local cache, never the network. Addressee semantics: see D4. |
 | `iot_read_text` | `iot.readText(feed, from?, to?)` | `read text $feed \|\| from $from to $to` | `lese Text $feed \|\| von $from an $to` | |
 | `iot_who` (hidden) | `iot.who(w: IotWho)` | `$w` | | all / dashboard / other devices / all but me / only this device |
-| `iot_target` (hidden) | `iot.target(t: IotTarget)` | `$t` | | all / dashboard |
+| `iot_target` (hidden) | `iot.target(t: IotTarget)` | `$t` | | all / dashboard; for `to` in code only since v0.3.0 |
 
 ## Time
 
@@ -67,10 +68,13 @@ Advanced (`//% advanced=true`): module firmware version, module info.
 
 - Dependency key `iot`, repo `Amerlander/pxt-calliope-iot` for now (simx key `amerlander/pxt-calliope-iot`), later `calliope-edu/pxt-calliope-iot`: when it moves, change `iotsim.panelKey()`, the targetconfig key and the Campus pin together.
 - Program is IoT ⇔ `main.ts` calls any `iot.` function from this list.
-- Path is WLAN ⇔ `iot.connectWifi(` is present (E9).
-- `iot.connectDashboard("<ref>"[, "<server>"])`: ref first, server second (literals).
-- `iot.connectWifi("<ssid>", "<password>"…)`: ssid first, password second.
-- Blocks XML: `iot_dashboard` inputs `reference`, `server`; `iot_wifi_connect` inputs `ssid`, `password`,
+- Since v0.3.0 the toolbox has one connection block, `iot.connect("<ssid>", "<password>", "<token>"[, "<server>"…])`:
+  ssid, password, token (the reference), server, in that order. Path is WLAN ⇔ its ssid is not empty.
+  Blocks XML: `iot_connect` inputs `ssid`, `password`, `token`, `server`, fields `tx`, `rx`.
+- The v0.2 pair stays as hidden blocks, so programs that use it still work and open:
+  path is WLAN ⇔ `iot.connectWifi(` is present (E9); `iot.connectDashboard("<ref>"[, "<server>"])`: ref
+  first, server second (literals); `iot.connectWifi("<ssid>", "<password>"…)`: ssid first, password second.
+  Blocks XML: `iot_dashboard` inputs `reference`, `server`; `iot_wifi_connect` inputs `ssid`, `password`,
   fields `tx`, `rx`.
 - `iotfeeds.ts` is no longer generated for programs with this extension (D5); a block with id
   `iot_feed_name` in a project file would collide with the extension's own.

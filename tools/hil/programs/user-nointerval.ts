@@ -12,7 +12,7 @@ iot.onNumber("Licht", iot.who(IotWho.All), function (value, _from, to) {
         basic.setLedColors(0xff0000, 0xff0000, 0xff0000)
     }
 })
-iot.onSent("temperatur", function (feed, value, to) {
+iot.onSent("temperatur", function (feed, value) {
     basic.showIcon(IconNames.Heart)
     basic.showLeds(`
         . . . . .
@@ -31,7 +31,7 @@ basic.forever(function () {
 // Diagnosis.
 let sends = 0
 let confirmed = 0
-iot.onSent("", function (feed, value, to) {
+iot.onSent("", function (feed, value) {
     confirmed++
 })
 control.inBackground(function () {

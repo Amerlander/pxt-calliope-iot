@@ -7,7 +7,7 @@
 // B: sync every minute -> after the sync the radio goes off by itself; the
 //    next value goes at the next sync, waking the module.
 let confirmed = 0
-iot.onSent("", function (feed, value, to) {
+iot.onSent("", function (feed, value) {
     confirmed++
     serial.writeLine("SENT " + feed + "=" + value + " at " + control.millis() + " ms")
 })

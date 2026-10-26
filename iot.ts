@@ -121,6 +121,40 @@ namespace iot {
     // ---- Connection ------------------------------------------------------
 
     /**
+     * Connect to a WiFi network and a Calliope Campus dashboard. The block
+     * waits until the Calliope is in the WiFi network (at most 30 seconds) and
+     * shows a WiFi animation meanwhile, then a check mark, or a cross if it
+     * did not work. With an empty WiFi name the values go through the open
+     * Campus tab instead, and the token may stay empty too: Campus then takes
+     * the dashboard of the open program.
+     * @param ssid name of the WiFi network
+     * @param password password of the WiFi network
+     * @param token name or key of the dashboard (as shown in Campus)
+     * @param server address of the Campus server
+     * @param tx pin the Calliope sends to the WiFi module on
+     * @param rx pin the Calliope receives from the WiFi module on
+     */
+    //% blockId=iot_connect
+    //% block="connect|WiFi SSID $ssid|password $password|IoT token $token||server $server|TX $tx|RX $rx"
+    //% inlineInputMode=external
+    //% expandableArgumentMode="toggle"
+    //% token.defl=""
+    //% server.defl="https://campus-api.calliope.cc"
+    //% tx.defl=SerialPin.C17 rx.defl=SerialPin.C16
+    //% tx.fieldEditor="gridpicker" tx.fieldOptions.columns=3 tx.fieldOptions.tooltips="false"
+    //% rx.fieldEditor="gridpicker" rx.fieldOptions.columns=3 rx.fieldOptions.tooltips="false"
+    //% group="Connection" weight=100 blockGap=8
+    export function connect(ssid: string, password: string, token: string, server?: string, tx?: SerialPin, rx?: SerialPin): void {
+        iotcore.setDashboard(token, server)
+        // No WiFi name: the Campus path, nothing to wait for.
+        if (!ssid) return
+        startWifi(ssid, password, tx, rx)
+        waitForWifi()
+    }
+
+    // Hidden since v0.3.0: "connect" carries WiFi and dashboard in one block.
+    // Kept so that programs with the two old blocks still open as blocks.
+    /**
      * Connect to a WiFi network. Returns at once; the WiFi module starts in the
      * background (at the earliest 5 seconds after power-on). With this block in
      * the program, the values go over WiFi; without it, through the Campus tab.
@@ -131,12 +165,35 @@ namespace iot {
      */
     //% blockId=iot_wifi_connect
     //% block="connect to WiFi $ssid password $password || TX $tx RX $rx"
+    //% blockHidden=true
     //% expandableArgumentMode="toggle"
     //% tx.defl=SerialPin.C17 rx.defl=SerialPin.C16
     //% tx.fieldEditor="gridpicker" tx.fieldOptions.columns=3 tx.fieldOptions.tooltips="false"
     //% rx.fieldEditor="gridpicker" rx.fieldOptions.columns=3 rx.fieldOptions.tooltips="false"
-    //% group="Connection" weight=100 blockGap=8
+    //% group="Connection" weight=99 blockGap=8
     export function connectWifi(ssid: string, password: string, tx?: SerialPin, rx?: SerialPin): void {
+        startWifi(ssid, password, tx, rx)
+    }
+
+    /**
+     * Choose the dashboard the values belong to. Through the Campus tab the
+     * reference may stay empty; Campus then takes the dashboard of the open program.
+     * @param reference name or key of the dashboard (as shown in Campus)
+     * @param server address of the Campus server
+     */
+    //% blockId=iot_dashboard
+    //% block="connect to dashboard $reference || server $server"
+    //% blockHidden=true
+    //% expandableArgumentMode="toggle"
+    //% reference.defl=""
+    //% server.defl="https://campus-api.calliope.cc"
+    //% group="Connection" weight=99 blockGap=8
+    export function connectDashboard(reference: string, server?: string): void {
+        iotcore.setDashboard(reference, server)
+    }
+
+    // Starts the WiFi module in the background and returns at once.
+    function startWifi(ssid: string, password: string, tx: SerialPin, rx: SerialPin): void {
         wifiRequested = true
         // Grove A1 unless the "+" says otherwise. NaN-safe: see the file header.
         if (!(tx >= 0)) tx = SerialPin.C17
@@ -160,20 +217,68 @@ namespace iot {
         iotcore.start()
     }
 
-    /**
-     * Choose the dashboard the values belong to. Through the Campus tab the
-     * reference may stay empty; Campus then takes the dashboard of the open program.
-     * @param reference name or key of the dashboard (as shown in Campus)
-     * @param server address of the Campus server
-     */
-    //% blockId=iot_dashboard
-    //% block="connect to dashboard $reference || server $server"
-    //% expandableArgumentMode="toggle"
-    //% reference.defl=""
-    //% server.defl="https://campus-api.calliope.cc"
-    //% group="Connection" weight=99 blockGap=8
-    export function connectDashboard(reference: string, server?: string): void {
-        iotcore.setDashboard(reference, server)
+    // How long "connect" waits for the WiFi network. The module keeps trying
+    // in the background afterwards; the program just stops waiting for it.
+    const WIFI_WAIT_MS = 30000
+
+    // Waits for the WiFi network with the WiFi symbol building up on the LEDs,
+    // arc by arc, then shows a check mark (in the network) or a cross (an
+    // error that waiting does not fix, or the time is up) for a second.
+    // Always whole rounds and at least one: the simulator is in the network
+    // at once and still shows the animation, and the symbol is complete when
+    // the check mark replaces it.
+    function waitForWifi(): void {
+        const start = control.millis()
+        let frame = 0
+        while (true) {
+            drawWifiFrame(frame)
+            frame = (frame + 1) % 4
+            basic.pause(250)
+            if (frame != 0) continue
+            if (wifiReady() || wifiFailed()) break
+            if (!(control.millis() - start < WIFI_WAIT_MS)) break
+        }
+        basic.showIcon(wifiReady() ? IconNames.Yes : IconNames.No, 0)
+        basic.pause(1000)
+        basic.clearScreen()
+    }
+
+    function wifiReady(): boolean {
+        if (iotcore.isSimulator()) return true
+        if (wifiUnsupported) return false
+        return iotwifi.isOnline()
+    }
+
+    // Errors the module does not get past by trying longer.
+    function wifiFailed(): boolean {
+        if (wifiUnsupported) return true
+        if (iotcore.isSimulator()) return false
+        const e = iotwifi.lastError()
+        return e == "no-module" || e == "wrong-password" || e == "ap-not-found" || e.substr(0, 4) == "uart"
+    }
+
+    // Frame 0 is dark, 1 the dot, 2 adds the small arc, 3 the big one:
+    //   . # # # .
+    //   # . . . #
+    //   . # # # .
+    //   . . . . .
+    //   . . # . .
+    function drawWifiFrame(frame: number): void {
+        if (frame == 0) {
+            basic.clearScreen()
+        } else if (frame == 1) {
+            led.plot(2, 4)
+        } else if (frame == 2) {
+            led.plot(1, 2)
+            led.plot(2, 2)
+            led.plot(3, 2)
+        } else {
+            led.plot(0, 1)
+            led.plot(1, 0)
+            led.plot(2, 0)
+            led.plot(3, 0)
+            led.plot(4, 1)
+        }
     }
 
     /**
@@ -191,6 +296,7 @@ namespace iot {
     //% expandableArgumentMode="toggle"
     //% interval.defl=IotSync.Every2Seconds
     //% mode.defl=IotSyncMode.SendAndReceive
+    //% advanced=true
     //% group="Connection" weight=98 blockGap=8
     export function syncEvery(interval: IotSync, mode?: IotSyncMode): void {
         // NaN-safe: an omitted mode is NaN, and NaN == 1 is false.
@@ -240,6 +346,9 @@ namespace iot {
         paceTimes[i] = control.millis()
     }
 
+    // The send blocks show no receiver since v0.3.0: from blocks a value goes
+    // to everyone. `to` stays in the code for programs written as text (a
+    // device number, or iot.target(...)).
     /**
      * Send a number. A single value goes at once; values in quick succession
      * are collected and go together. The same feed goes at most once per
@@ -249,10 +358,8 @@ namespace iot {
      * @param to who gets the value: everyone, the dashboard, or a device number
      */
     //% blockId=iot_send
-    //% block="send $feed = $value || to $to"
-    //% expandableArgumentMode="toggle"
+    //% block="send number $value to feed $feed"
     //% feed.shadow="iot_feed_name"
-    //% to.shadow="iot_target"
     //% group="Send" weight=90 blockGap=8
     export function send(feed: string, value: number, to?: string): void {
         pace(feed, to)
@@ -269,10 +376,8 @@ namespace iot {
      * @param to who gets the text: everyone, the dashboard, or a device number
      */
     //% blockId=iot_send_text
-    //% block="send text $feed = $text || to $to"
-    //% expandableArgumentMode="toggle"
+    //% block="send text $text to feed $feed"
     //% feed.shadow="iot_feed_name"
-    //% to.shadow="iot_target"
     //% group="Send" weight=89 blockGap=8
     export function sendText(feed: string, text: string, to?: string): void {
         pace(feed, to)
@@ -296,16 +401,20 @@ namespace iot {
      * Runs when a value of this program has really arrived: over WiFi when the
      * server confirmed it, through Campus when it left the Calliope.
      * @param which name of the feed, empty for every feed
-     * @param handler code to run, with the feed, the value and the receiver
+     * @param handler code to run, with the feed and the value
      */
     //% blockId=iot_on_sent
     //% block="on $which sent"
     //% draggableParameters="reporter"
     //% which.shadow="iot_feed_name"
+    //% advanced=true
     //% group="Send" weight=87
-    export function onSent(which: string, handler: (feed: string, value: number, to: string) => void): void {
-        // The feed field starts empty, and empty means "every feed".
-        iotcore.onSent(which, handler)
+    export function onSent(which: string, handler: (feed: string, value: number) => void): void {
+        // The feed field starts empty, and empty means "every feed". The
+        // receiver the core passes is left out: the send blocks have none.
+        iotcore.onSent(which, function (feed: string, value: number, to: string) {
+            handler(feed, value)
+        })
     }
 
     // ---- Receive ---------------------------------------------------------
@@ -400,8 +509,8 @@ namespace iot {
     }
 
     /**
-     * A receiver chosen from a list. Hidden: it only sits in the "to" inputs
-     * of the send blocks; pulled out, the input takes a device number or a variable.
+     * A receiver chosen from a list, for the "to" argument of iot.send and
+     * iot.sendText in code. Hidden: the send blocks have no receiver.
      * @param t who gets the value
      */
     //% blockId=iot_target
