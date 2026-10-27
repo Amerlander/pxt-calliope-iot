@@ -420,27 +420,27 @@ namespace iot {
 
     // ---- Receive ---------------------------------------------------------
 
-    // Since v0.3.0 the sender filter sits behind the "+" (without it: from
-    // everyone) and the handlers have no receiver, like the send blocks. The
-    // filter is therefore the last, optional argument.
+    // Since v0.3.0 the receive blocks come twice: a plain one in the
+    // category (every sender, the handler gets only the value) and one with
+    // the sender filter under "more". A "+" for the filter is not possible:
+    // pxt always puts the handler last in the generated call, so an optional
+    // argument cannot sit between it and the feed. The handlers have no
+    // receiver, like the send blocks.
     /**
      * Runs when a number arrives on this feed, from the dashboard or
      * another device, and for the values this program sends itself. Only
      * values for everyone or for this device count.
      * @param feed name of the feed, for example "setpoint"
-     * @param handler code to run, with the value and the sender
-     * @param source whose values: all, the dashboard, other devices, or a device number
+     * @param handler code to run, with the value
      */
-    //% blockId=iot_on_number
-    //% block="on $feed received || from $source"
-    //% expandableArgumentMode="toggle"
+    //% blockId=iot_on_received
+    //% block="on $feed received"
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
-    //% source.shadow="iot_who"
-    //% group="Receive" weight=80 blockGap=8
-    export function onNumber(feed: string, handler: (value: number, from: string) => void, source?: string): void {
-        iotcore.onNumber(feed, source, function (value: number, from: string, to: string) {
-            handler(value, from)
+    //% group="Receive" weight=81 blockGap=8
+    export function onReceived(feed: string, handler: (value: number) => void): void {
+        iotcore.onNumber(feed, iotcore.WHO_ALL, function (value: number, from: string, to: string) {
+            handler(value)
         })
     }
 
@@ -448,17 +448,55 @@ namespace iot {
      * Runs when a text (or a number, as text) arrives on this feed.
      * Only values for everyone or for this device count.
      * @param feed name of the feed, for example "message"
-     * @param handler code to run, with the text and the sender
-     * @param source whose values: all, the dashboard, other devices, or a device number
+     * @param handler code to run, with the text
      */
-    //% blockId=iot_on_text
-    //% block="on text $feed received || from $source"
-    //% expandableArgumentMode="toggle"
+    //% blockId=iot_on_text_received
+    //% block="on text $feed received"
+    //% draggableParameters="reporter"
+    //% feed.shadow="iot_feed_name"
+    //% group="Receive" weight=80 blockGap=8
+    export function onTextReceived(feed: string, handler: (text: string) => void): void {
+        iotcore.onText(feed, iotcore.WHO_ALL, function (text: string, from: string, to: string) {
+            handler(text)
+        })
+    }
+
+    /**
+     * Runs when a number arrives on this feed from these senders, and for the
+     * values this program sends itself. Only values for everyone or for this
+     * device count.
+     * @param feed name of the feed, for example "setpoint"
+     * @param source whose values: all, the dashboard, other devices, or a device number
+     * @param handler code to run, with the value and the sender
+     */
+    //% blockId=iot_on_number
+    //% block="on $feed received from $source"
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% source.shadow="iot_who"
+    //% advanced=true
+    //% group="Receive" weight=80 blockGap=8
+    export function onNumber(feed: string, source: string, handler: (value: number, from: string) => void): void {
+        iotcore.onNumber(feed, source, function (value: number, from: string, to: string) {
+            handler(value, from)
+        })
+    }
+
+    /**
+     * Runs when a text (or a number, as text) arrives on this feed from these
+     * senders. Only values for everyone or for this device count.
+     * @param feed name of the feed, for example "message"
+     * @param source whose values: all, the dashboard, other devices, or a device number
+     * @param handler code to run, with the text and the sender
+     */
+    //% blockId=iot_on_text
+    //% block="on text $feed received from $source"
+    //% draggableParameters="reporter"
+    //% feed.shadow="iot_feed_name"
+    //% source.shadow="iot_who"
+    //% advanced=true
     //% group="Receive" weight=79 blockGap=8
-    export function onText(feed: string, handler: (text: string, from: string) => void, source?: string): void {
+    export function onText(feed: string, source: string, handler: (text: string, from: string) => void): void {
         iotcore.onText(feed, source, function (text: string, from: string, to: string) {
             handler(text, from)
         })

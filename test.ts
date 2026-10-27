@@ -29,15 +29,18 @@ iot.onSent("", function (feed: string, value: number) {
 })
 
 // Receive
-iot.onNumber("setpoint", function (value: number, from: string) {
+iot.onNumber("setpoint", iot.who(IotWho.Dashboard), function (value: number, from: string) {
     basic.showNumber(value)
 })
-iot.onNumber("setpoint", function (value: number, from: string) {
+iot.onReceived("setpoint", function (value: number) {
     basic.showNumber(value)
-}, iot.who(IotWho.Dashboard))
-iot.onText("message", function (text: string, from: string) {
+})
+iot.onTextReceived("message", function (text: string) {
     basic.showString(text)
-}, iot.who(IotWho.OtherDevices))
+})
+iot.onText("message", iot.who(IotWho.OtherDevices), function (text: string, from: string) {
+    basic.showString(text)
+})
 let n = iot.read("setpoint")
 n += iot.read("setpoint", iot.who(IotWho.AllButMe), iot.who(IotWho.OnlyThisDevice))
 let s = iot.readText("message")
