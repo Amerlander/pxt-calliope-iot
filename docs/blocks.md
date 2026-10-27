@@ -33,12 +33,12 @@ on them instead.
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_on_received` | `iot.onReceived(feed, handler(value))` | `on $feed received` | `wenn $feed empfangen` | Since v0.3.0: every sender, the handler gets only the value. Own values count. Fires only for values to everyone or to this device. |
-| `iot_on_text_received` | `iot.onTextReceived(feed, handler(text))` | `on text $feed received` | `wenn Text $feed empfangen` | as above |
-| `iot_on_number` | `iot.onNumber(feed, from, handler(value, from))` | `on $feed received from $from` | `wenn $feed von $from empfangen` | Under "more" since v0.3.0, without the `to` parameter. `from`: shadow `iot_who`. A "+" for the filter does not work: pxt puts the handler last in the generated call, so the filter cannot be optional. |
-| `iot_on_text` | `iot.onText(feed, from, handler(text, from))` | `on text $feed received from $from` | `wenn Text $feed von $from empfangen` | as above |
-| `iot_read` | `iot.read(feed, from?, to?)` | `read $feed \|\| from $from to $to` | `lese $feed \|\| von $from an $to` | From the local cache, never the network. Addressee semantics: see D4. |
-| `iot_read_text` | `iot.readText(feed, from?, to?)` | `read text $feed \|\| from $from to $to` | `lese Text $feed \|\| von $from an $to` | |
+| `iot_on_received` | `iot.onReceived(feed, handler(value))` | `on $value received from feed $feed` | `wenn $value aus Feed $feed empfangen` | Since v0.3.0: every sender, the handler gets only the value. Own values count. Fires only for values to everyone or to this device. |
+| `iot_on_text_received` | `iot.onTextReceived(feed, handler(text))` | `on $text received from feed $feed` | `wenn $text aus Feed $feed empfangen` | as above |
+| `iot_on_number` | `iot.onNumber(feed, from, handler(value, from))` | `on $value received from feed $feed by $from` | `wenn $value aus Feed $feed von $from empfangen` | Under "more" since v0.3.0, without the `to` parameter. `from`: shadow `iot_who`. A "+" for the filter does not work: pxt puts the handler last in the generated call, so the filter cannot be optional. |
+| `iot_on_text` | `iot.onText(feed, from, handler(text, from))` | `on $text received from feed $feed by $from` | `wenn $text aus Feed $feed von $from empfangen` | as above |
+| `iot_read` | `iot.read(feed, from?, to?)` | `read number from feed $feed \|\| from $from to $to` | `lese Zahl aus Feed $feed \|\| von $from an $to` | From the local cache, never the network. Addressee semantics: see D4. |
+| `iot_read_text` | `iot.readText(feed, from?, to?)` | `read text from feed $feed \|\| from $from to $to` | `lese Text aus Feed $feed \|\| von $from an $to` | |
 | `iot_who` (hidden) | `iot.who(w: IotWho)` | `$w` | | all / dashboard / other devices / all but me / only this device |
 | `iot_target` (hidden) | `iot.target(t: IotTarget)` | `$t` | | all / dashboard; for `to` in code only since v0.3.0 |
 

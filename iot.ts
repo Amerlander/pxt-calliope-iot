@@ -108,7 +108,7 @@ enum IotStatus {
  * Send data to a Calliope Campus dashboard and receive data from it, over
  * WiFi or through the open Campus tab (USB, Bluetooth).
  */
-//% weight=9 color=#0E7C86 icon="" block="IoT"
+//% weight=9 color=#6476fd icon="" block="IoT"
 //% groups='["Connection","Send","Receive","Time","Diagnosis"]'
 namespace iot {
 
@@ -425,7 +425,9 @@ namespace iot {
     // the sender filter under "more". A "+" for the filter is not possible:
     // pxt always puts the handler last in the generated call, so an optional
     // argument cannot sit between it and the feed. The handlers have no
-    // receiver, like the send blocks.
+    // receiver, like the send blocks. Since v0.3.1 the value's reporter sits
+    // in the block text ($value/$text) instead of at the end, where it takes
+    // the place of the words "number"/"text".
     /**
      * Runs when a number arrives on this feed, from the dashboard or
      * another device, and for the values this program sends itself. Only
@@ -434,7 +436,7 @@ namespace iot {
      * @param handler code to run, with the value
      */
     //% blockId=iot_on_received
-    //% block="on $feed received"
+    //% block="on $value received from feed $feed"
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% group="Receive" weight=81 blockGap=8
@@ -451,7 +453,7 @@ namespace iot {
      * @param handler code to run, with the text
      */
     //% blockId=iot_on_text_received
-    //% block="on text $feed received"
+    //% block="on $text received from feed $feed"
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% group="Receive" weight=80 blockGap=8
@@ -470,7 +472,7 @@ namespace iot {
      * @param handler code to run, with the value and the sender
      */
     //% blockId=iot_on_number
-    //% block="on $feed received from $source"
+    //% block="on $value received from feed $feed by $source"
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% source.shadow="iot_who"
@@ -490,7 +492,7 @@ namespace iot {
      * @param handler code to run, with the text and the sender
      */
     //% blockId=iot_on_text
-    //% block="on text $feed received from $source"
+    //% block="on $text received from feed $feed by $source"
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% source.shadow="iot_who"
@@ -511,7 +513,7 @@ namespace iot {
      * @param to only values for exactly this receiver
      */
     //% blockId=iot_read
-    //% block="read $feed || from $from to $to"
+    //% block="read number from feed $feed || from $from to $to"
     //% expandableArgumentMode="toggle"
     //% feed.shadow="iot_feed_name"
     //% from.shadow="iot_who"
@@ -529,7 +531,7 @@ namespace iot {
      * @param to only values for exactly this receiver
      */
     //% blockId=iot_read_text
-    //% block="read text $feed || from $from to $to"
+    //% block="read text from feed $feed || from $from to $to"
     //% expandableArgumentMode="toggle"
     //% feed.shadow="iot_feed_name"
     //% from.shadow="iot_who"
