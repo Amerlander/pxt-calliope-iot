@@ -18,7 +18,7 @@ on them instead.
 | `iot_wifi_connect` | `iot.connectWifi(ssid, password, tx?, rx?)` | `connect to WiFi $ssid password $password \|\| TX $tx RX $rx` | `mit WLAN $ssid Passwort $password verbinden \|\| TX $tx RX $rx` | **Hidden since v0.3.0** (kept so old programs open as blocks; `iot_connect` replaces both). Non-blocking. Opens the module UART after the 5 s cold-boot rule. Pins default C17/C16 (Grove A1), hidden behind "+". Its presence switches the program to WLAN. Campus fills ssid/password from the room settings (only into a completely empty block). |
 | `iot_dashboard` | `iot.connectDashboard(reference, server?)` | `connect to dashboard $reference \|\| server $server` | `mit Dashboard $reference verbinden \|\| Server $server` | **Hidden since v0.3.0.** Campus writes reference and server only when a dashboard is picked in the chip. Default server: `https://campus-api.calliope.cc`. |
 | `iot_sync` | `iot.syncEvery(interval: IotSync, mode?: IotSyncMode)` | `sync with dashboard every $interval \|\| $mode` | `mit Dashboard abgleichen $interval \|\| $mode` | WLAN only. In "more" (`advanced=true`) since v0.3.0. At most one request per interval (it carries the collected values and brings the dashboard's new values back). `IotSync`: 2 s / 5 s / 10 s / minute / 10 minutes / hour (de labels carry the article: alle 2 Sekunden … jede Minute … jede Stunde). Without the block: 2 s. `IotSyncMode` behind "+": send and receive (default) / only send (no requests that only ask). From a minute on the module sleeps between syncs. See D3. |
-| `iot_sleep` | `iot.sleepWifi()` | `put WiFi module to sleep` | `WLAN-Modul schlafen legen` | Radio off (AT+CWQAP, AT+CWMODE=0); the module stays reachable on its UART. The next value wakes it (radio on, join: a few seconds) and goes; until then no request goes out just to ask. Status `sleeping`. No deep sleep: waking from it early needs the module's reset line, which the Grove cable does not carry. |
+| `iot_sleep` | `iot.sleepWifi()` | `put WiFi module to sleep` | `WLAN-Modul schlafen legen` | In "more" since v0.3.0. Radio off (AT+CWQAP, AT+CWMODE=0); the module stays reachable on its UART. The next value wakes it (radio on, join: a few seconds) and goes; until then no request goes out just to ask. Status `sleeping`. No deep sleep: waking from it early needs the module's reset line, which the Grove cable does not carry. |
 
 ## Sending
 
@@ -33,8 +33,8 @@ on them instead.
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_on_number` | `iot.onNumber(feed, from, handler(value, from, to))` | `on $feed received from $from` | `wenn $feed von $from empfangen` | Draggable `value`, `from`, `to`. `from`: shadow `iot_who`. Own values count ("all" includes me). Fires only for values to everyone or to this device. |
-| `iot_on_text` | `iot.onText(feed, from, handler(text, from, to))` | `on text $feed received from $from` | `wenn Text $feed von $from empfangen` | as above |
+| `iot_on_number` | `iot.onNumber(feed, handler(value, from), from?)` | `on $feed received \|\| from $from` | `wenn $feed empfangen \|\| von $from` | Draggable `value`, `from` (since v0.3.0 no `to`, and the sender filter `from` behind "+", hence the last argument; without it: all). `from`: shadow `iot_who`. Own values count ("all" includes me). Fires only for values to everyone or to this device. |
+| `iot_on_text` | `iot.onText(feed, handler(text, from), from?)` | `on text $feed received \|\| from $from` | `wenn Text $feed empfangen \|\| von $from` | as above |
 | `iot_read` | `iot.read(feed, from?, to?)` | `read $feed \|\| from $from to $to` | `lese $feed \|\| von $from an $to` | From the local cache, never the network. Addressee semantics: see D4. |
 | `iot_read_text` | `iot.readText(feed, from?, to?)` | `read text $feed \|\| from $from to $to` | `lese Text $feed \|\| von $from an $to` | |
 | `iot_who` (hidden) | `iot.who(w: IotWho)` | `$w` | | all / dashboard / other devices / all but me / only this device |
@@ -62,7 +62,7 @@ on them instead.
 | `iot_device_id` | `iot.deviceName()` | `my device name` | `mein Gerätename` | friendly 5-letter name (display only) |
 | `iot_log` | `iot.log(text)` | `log $text` | `protokolliere $text` | on every open pipe |
 
-Advanced (`//% advanced=true`): module firmware version, module info.
+Since v0.3.0 all diagnosis blocks are under "more" (`//% advanced=true`); `log`, module firmware version and module info are hidden (callable from code only).
 
 ## Campus coupling (P5 checklist input)
 

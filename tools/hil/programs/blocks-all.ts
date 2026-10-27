@@ -19,13 +19,13 @@ iot.sleepWifi()
 let setpoint = 22
 
 // Receive
-iot.onNumber("setpoint", iot.who(IotWho.Dashboard), function (value, from, to) {
+iot.onNumber("setpoint", function (value, from) {
     setpoint = value
     basic.showNumber(value)
-})
-iot.onText("chat", iot.who(IotWho.OtherDevices), function (text, from, to) {
+}, iot.who(IotWho.Dashboard))
+iot.onText("chat", function (text, from) {
     basic.showString(text)
-})
+}, iot.who(IotWho.OtherDevices))
 
 // Send
 iot.onSent("", function (feed, value) {

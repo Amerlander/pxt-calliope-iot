@@ -310,6 +310,7 @@ namespace iot {
      */
     //% blockId=iot_sleep
     //% block="put WiFi module to sleep"
+    //% advanced=true
     //% group="Connection" weight=97
     export function sleepWifi(): void {
         iotcore.sleepNow()
@@ -419,39 +420,48 @@ namespace iot {
 
     // ---- Receive ---------------------------------------------------------
 
+    // Since v0.3.0 the sender filter sits behind the "+" (without it: from
+    // everyone) and the handlers have no receiver, like the send blocks. The
+    // filter is therefore the last, optional argument.
     /**
      * Runs when a number arrives on this feed, from the dashboard or
      * another device, and for the values this program sends itself. Only
      * values for everyone or for this device count.
      * @param feed name of the feed, for example "setpoint"
+     * @param handler code to run, with the value and the sender
      * @param source whose values: all, the dashboard, other devices, or a device number
-     * @param handler code to run, with the value, the sender and the receiver
      */
     //% blockId=iot_on_number
-    //% block="on $feed received from $source"
+    //% block="on $feed received || from $source"
+    //% expandableArgumentMode="toggle"
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% source.shadow="iot_who"
     //% group="Receive" weight=80 blockGap=8
-    export function onNumber(feed: string, source: string, handler: (value: number, from: string, to: string) => void): void {
-        iotcore.onNumber(feed, source, handler)
+    export function onNumber(feed: string, handler: (value: number, from: string) => void, source?: string): void {
+        iotcore.onNumber(feed, source, function (value: number, from: string, to: string) {
+            handler(value, from)
+        })
     }
 
     /**
      * Runs when a text (or a number, as text) arrives on this feed.
      * Only values for everyone or for this device count.
      * @param feed name of the feed, for example "message"
+     * @param handler code to run, with the text and the sender
      * @param source whose values: all, the dashboard, other devices, or a device number
-     * @param handler code to run, with the text, the sender and the receiver
      */
     //% blockId=iot_on_text
-    //% block="on text $feed received from $source"
+    //% block="on text $feed received || from $source"
+    //% expandableArgumentMode="toggle"
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% source.shadow="iot_who"
     //% group="Receive" weight=79 blockGap=8
-    export function onText(feed: string, source: string, handler: (text: string, from: string, to: string) => void): void {
-        iotcore.onText(feed, source, handler)
+    export function onText(feed: string, handler: (text: string, from: string) => void, source?: string): void {
+        iotcore.onText(feed, source, function (text: string, from: string, to: string) {
+            handler(text, from)
+        })
     }
 
     /**
@@ -635,12 +645,16 @@ namespace iot {
 
     // ---- Diagnosis -------------------------------------------------------
 
+    // Since v0.3.0 the diagnosis blocks sit under "more"; log and the two
+    // module blocks are hidden (still callable from code).
+
     /**
      * The state of the IoT connection: not connected, connected, sending,
      * error, or no WiFi module.
      */
     //% blockId=iot_status
     //% block="IoT status"
+    //% advanced=true
     //% group="Diagnosis" weight=40 blockGap=8
     export function status(): IotStatus {
         if (wifiUnsupported) return IotStatus.NoWifiModule
@@ -667,6 +681,7 @@ namespace iot {
     //% blockId=iot_status_value
     //% block="$s"
     //% shim=TD_ID
+    //% advanced=true
     //% group="Diagnosis" weight=39 blockGap=8
     export function statusValue(s: IotStatus): IotStatus {
         return s
@@ -677,6 +692,7 @@ namespace iot {
      */
     //% blockId=iot_wifi_connected
     //% block="WiFi connected?"
+    //% advanced=true
     //% group="Diagnosis" weight=38 blockGap=8
     export function wifiConnected(): boolean {
         // The simulator plays a working network once the program asked for one.
@@ -690,6 +706,7 @@ namespace iot {
      */
     //% blockId=iot_wifi_signal
     //% block="WiFi signal"
+    //% advanced=true
     //% group="Diagnosis" weight=37 blockGap=8
     export function wifiSignal(): number {
         if (wifiUnsupported) return 0
@@ -701,6 +718,7 @@ namespace iot {
      */
     //% blockId=iot_last_error
     //% block="last error"
+    //% advanced=true
     //% group="Diagnosis" weight=36 blockGap=8
     export function lastError(): string {
         if (wifiUnsupported) return "WLAN geht nur mit dem Calliope mini 3"
@@ -717,6 +735,7 @@ namespace iot {
      */
     //% blockId=iot_device_id
     //% block="my device name"
+    //% advanced=true
     //% group="Diagnosis" weight=35 blockGap=8
     export function deviceName(): string {
         return iotcore.deviceName()
@@ -728,6 +747,7 @@ namespace iot {
      */
     //% blockId=iot_log
     //% block="log $text"
+    //% blockHidden=true
     //% group="Diagnosis" weight=34
     export function log(text: string): void {
         iotcore.log(text)
@@ -738,7 +758,7 @@ namespace iot {
      */
     //% blockId=iot_module_version
     //% block="WiFi module version"
-    //% advanced=true
+    //% blockHidden=true
     //% group="Diagnosis" weight=20 blockGap=8
     export function moduleVersion(): string {
         return iotwifi.moduleVersion()
@@ -750,7 +770,7 @@ namespace iot {
      */
     //% blockId=iot_module_info
     //% block="WiFi module info"
-    //% advanced=true
+    //% blockHidden=true
     //% group="Diagnosis" weight=19
     export function moduleInfo(): string {
         const family = iotwifi.moduleFamily()
