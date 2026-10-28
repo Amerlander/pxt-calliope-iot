@@ -303,6 +303,8 @@ namespace iot {
         iotcore.setSync(interval, mode == IotSyncMode.OnlySend)
     }
 
+    // Hidden since v0.4.0: the sync interval puts the module to sleep by
+    // itself from a minute on. Still callable from code.
     /**
      * Put the WiFi module to sleep: its radio goes off and it uses much less
      * power. The next value that is sent wakes it again (that takes a few
@@ -310,7 +312,7 @@ namespace iot {
      */
     //% blockId=iot_sleep
     //% block="put WiFi module to sleep"
-    //% advanced=true
+    //% blockHidden=true
     //% group="Connection" weight=97
     export function sleepWifi(): void {
         iotcore.sleepNow()
@@ -354,8 +356,8 @@ namespace iot {
     // Names since v0.4.0: every block that means a number or a text says so
     // (sendNumber/sendText, onNumberReceived/onTextReceived,
     // readNumber/readText); the sender filter adds "From". The block ids stay
-    // the old ones, so saved block programs open unchanged, and the old
-    // function names stay as deprecated aliases for programs written as text.
+    // the old ones, so saved block programs open unchanged; programs written
+    // as text with the old names (send, onReceived, read, ...) must be renamed.
     /**
      * Send a number. A single value goes at once; values in quick succession
      * are collected and go together. The same feed goes at most once per
@@ -373,13 +375,6 @@ namespace iot {
         iotcore.send(feed, value, to)
     }
 
-    /**
-     * Old name of sendNumber.
-     */
-    //% deprecated=true
-    export function send(feed: string, value: number, to?: string): void {
-        sendNumber(feed, value, to)
-    }
 
     /**
      * Send a text (at most 160 characters). A single value goes at once;
@@ -465,13 +460,6 @@ namespace iot {
         })
     }
 
-    /**
-     * Old name of onNumberReceived.
-     */
-    //% deprecated=true
-    export function onReceived(feed: string, handler: (value: number) => void): void {
-        onNumberReceived(feed, handler)
-    }
 
     /**
      * Runs when a text (or a number, as text) arrives on this feed.
@@ -512,13 +500,6 @@ namespace iot {
         })
     }
 
-    /**
-     * Old name of onNumberReceivedFrom.
-     */
-    //% deprecated=true
-    export function onNumber(feed: string, source: string, handler: (value: number, from: string) => void): void {
-        onNumberReceivedFrom(feed, source, handler)
-    }
 
     /**
      * Runs when a text (or a number, as text) arrives on this feed from these
@@ -540,13 +521,6 @@ namespace iot {
         })
     }
 
-    /**
-     * Old name of onTextReceivedFrom.
-     */
-    //% deprecated=true
-    export function onText(feed: string, source: string, handler: (text: string, from: string) => void): void {
-        onTextReceivedFrom(feed, source, handler)
-    }
 
     /**
      * The latest number on this feed (0 if none yet). Reads what has
@@ -567,13 +541,6 @@ namespace iot {
         return iotcore.read(feed, from, to)
     }
 
-    /**
-     * Old name of readNumber.
-     */
-    //% deprecated=true
-    export function read(feed: string, from?: string, to?: string): number {
-        return readNumber(feed, from, to)
-    }
 
     /**
      * The latest value on this feed as text ("" if none yet). Reads

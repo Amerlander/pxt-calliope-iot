@@ -46,19 +46,6 @@ n += iot.readNumber("setpoint", iot.who(IotWho.AllButMe), iot.who(IotWho.OnlyThi
 let s = iot.readText("message")
 s += iot.readText("message", iot.who(IotWho.All), iot.who(IotWho.Dashboard))
 
-// Old names (deprecated aliases since v0.4.0) still compile
-iot.send("temperature", 1)
-iot.onReceived("setpoint", function (value: number) {
-    basic.showNumber(value)
-})
-iot.onNumber("setpoint", iot.who(IotWho.All), function (value: number, from: string) {
-    basic.showNumber(value)
-})
-iot.onText("message", iot.who(IotWho.All), function (text: string, from: string) {
-    basic.showString(text)
-})
-n += iot.read("setpoint")
-
 // Time
 if (iot.timeKnown()) {
     s += iot.time() + iot.date()

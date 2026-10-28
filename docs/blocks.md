@@ -18,7 +18,7 @@ on them instead.
 | `iot_wifi_connect` | `iot.connectWifi(ssid, password, tx?, rx?)` | `connect to WiFi $ssid password $password \|\| TX $tx RX $rx` | `mit WiFi $ssid Passwort $password verbinden \|\| TX $tx RX $rx` | **Hidden since v0.3.0** (kept so old programs open as blocks; `iot_connect` replaces both). Non-blocking. Opens the module UART after the 5 s cold-boot rule. Pins default C17/C16 (Grove A1), hidden behind "+". Its presence switches the program to WLAN. Campus fills ssid/password from the room settings (only into a completely empty block). |
 | `iot_dashboard` | `iot.connectDashboard(reference, server?)` | `connect to dashboard $reference \|\| server $server` | `mit Dashboard $reference verbinden \|\| Server $server` | **Hidden since v0.3.0.** Campus writes reference and server only when a dashboard is picked in the chip. Default server: `https://campus-api.calliope.cc`. |
 | `iot_sync` | `iot.syncEvery(interval: IotSync, mode?: IotSyncMode)` | `sync with IoT project every $interval \|\| $mode` | `mit IoT-Projekt abgleichen $interval \|\| $mode` | WLAN only. In "more" (`advanced=true`) since v0.3.0. At most one request per interval (it carries the collected values and brings the dashboard's new values back). `IotSync`: 2 s / 5 s / 10 s / minute / 10 minutes / hour (de labels carry the article: alle 2 Sekunden … jede Minute … jede Stunde). Without the block: 2 s. `IotSyncMode` behind "+": send and receive (default) / only send (no requests that only ask). From a minute on the module sleeps between syncs. See D3. |
-| `iot_sleep` | `iot.sleepWifi()` | `put WiFi module to sleep` | `WiFi-Modul schlafen legen` | In "more" since v0.3.0. Radio off (AT+CWQAP, AT+CWMODE=0); the module stays reachable on its UART. The next value wakes it (radio on, join: a few seconds) and goes; until then no request goes out just to ask. Status `sleeping`. No deep sleep: waking from it early needs the module's reset line, which the Grove cable does not carry. |
+| `iot_sleep` | `iot.sleepWifi()` | `put WiFi module to sleep` | `WiFi-Modul schlafen legen` | **Hidden since v0.4.0** (was in "more" since v0.3.0); still callable from code. Radio off (AT+CWQAP, AT+CWMODE=0); the module stays reachable on its UART. The next value wakes it (radio on, join: a few seconds) and goes; until then no request goes out just to ask. Status `sleeping`. No deep sleep: waking from it early needs the module's reset line, which the Grove cable does not carry. |
 
 ## Sending
 
@@ -45,8 +45,8 @@ on them instead.
 Names since v0.4.0: every function that means a number or a text says so (`sendNumber`/`sendText`,
 `onNumberReceived`/`onTextReceived`, `readNumber`/`readText`), the sender filter adds `From`
 (`onNumberReceivedFrom`/`onTextReceivedFrom`). The block ids did not change, so saved block programs open
-unchanged; the old names `send`, `onReceived`, `onNumber`, `onText` and `read` stay as deprecated aliases
-(`//% deprecated=true`: no block, not offered in code completion) for programs written as text.
+unchanged. The old names (`send`, `onReceived`, `onNumber`, `onText`, `read`) are gone: programs written as
+text have to use the new ones.
 
 ## Time
 
