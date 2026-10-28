@@ -19,11 +19,11 @@ iot.sleepWifi()
 let setpoint = 22
 
 // Receive
-iot.onNumber("setpoint", iot.who(IotWho.Dashboard), function (value, from) {
+iot.onNumberReceivedFrom("setpoint", iot.who(IotWho.Dashboard), function (value, from) {
     setpoint = value
     basic.showNumber(value)
 })
-iot.onText("chat", iot.who(IotWho.OtherDevices), function (text, from) {
+iot.onTextReceivedFrom("chat", iot.who(IotWho.OtherDevices), function (text, from) {
     basic.showString(text)
 })
 
@@ -59,12 +59,12 @@ input.onButtonPressed(Button.AB, function () {
 
 basic.forever(function () {
     const t = input.temperature()
-    iot.send("temperature", t)
+    iot.sendNumber("temperature", t)
     let warm = 0
     if (t > setpoint) warm = 1
-    iot.send("too-warm", warm)
-    const mine = iot.read("temperature", iot.who(IotWho.OnlyThisDevice))
-    const forMe = iot.read("setpoint", iot.who(IotWho.AllButMe), iot.who(IotWho.OnlyThisDevice))
+    iot.sendNumber("too-warm", warm)
+    const mine = iot.readNumber("temperature", iot.who(IotWho.OnlyThisDevice))
+    const forMe = iot.readNumber("setpoint", iot.who(IotWho.AllButMe), iot.who(IotWho.OnlyThisDevice))
     const last = iot.readText("chat")
     const any = iot.readText("chat", iot.who(IotWho.All), iot.who(IotWho.All))
     iot.log("t=" + mine + " setpoint=" + forMe + " chat=" + last + "/" + any + " " + iot.moduleInfo())

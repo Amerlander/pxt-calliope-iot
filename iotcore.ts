@@ -136,6 +136,11 @@ namespace iotcore {
     let lastSendMs = 0
     let retryAtMs = 0
     let backoffMs = 0
+    // retryAtMs is the server's wait (retry_after, too_fast), not our own
+    // back-off: coming back online does not shorten it.
+    let serverWait = false
+    // iotcore.wlanOnlineCount() last seen
+    let onlineSeen = 0
     let urgent = false
     let state = STATE_DISCONNECTED
     let lastErr = ""
@@ -301,6 +306,16 @@ namespace iotcore {
             urgent = true
         }
         if (inFlight || answer) return
+        const online = iotcore.wlanOnlineCount()
+        if (online != onlineSeen) {
+            // Back in the network (module plugged in again, network back in
+            // range): the back-off waited for exactly this.
+            onlineSeen = online
+            if (!serverWait) {
+                retryAtMs = 0
+                backoffMs = 0
+            }
+        }
         if (now < lastSendMs + WLAN_FLOOR_MS) return
         if (now < retryAtMs) return
         if (fBatch) {
@@ -408,6 +423,7 @@ namespace iotcore {
             // Pacing, not a fault: the batch is resent after the server's wait.
             // No error state (a status block would flicker), no back-off.
             retryAtMs = control.millis() + Math.min(a.retryAfterMs > 0 ? a.retryAfterMs : WLAN_FLOOR_MS, RETRY_AFTER_MAX_MS)
+            serverWait = true
             if (fBatch && fBatch.feeds.length == 0) fBatch = null
             return
         }
@@ -433,6 +449,7 @@ namespace iotcore {
         }
         backoffMs = 0
         retryAtMs = 0
+        serverWait = false
         state = STATE_CONNECTED
         lastErr = ""
         for (let r = 0; r < a.dFeeds.length; r++) {
@@ -465,6 +482,7 @@ namespace iotcore {
         let wait = backoffMs
         // The server's number wins over our own back-off.
         if (retryAfterMs > 0) wait = Math.min(retryAfterMs, RETRY_AFTER_MAX_MS)
+        serverWait = retryAfterMs > 0
         retryAtMs = control.millis() + wait
         state = STATE_ERROR
         lastErr = code

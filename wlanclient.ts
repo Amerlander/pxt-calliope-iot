@@ -18,6 +18,13 @@
  *    gives up with "no-module" (see recover()): the module keeps its power
  *    when the Calliope is reset or reflashed, so it may still wait for the
  *    data of a send that was cut off, or sit in transparent mode.
+ *  - A module unplugged while in use goes silent: not one byte comes back.
+ *    A request, a join or the link check that hears nothing at all sends the
+ *    client back to the bring-up (gone()), so the next requests answer
+ *    "offline" at once instead of timing out one by one. Plugged in again,
+ *    the module boots and prints "ready", which starts the bring-up at once;
+ *    a value to send also makes the client try now instead of after its
+ *    back-off. Once online, iotcore.wlanCameOnline() lets the core resend.
  *  - postIngest() is the sender the core calls from its own fiber (registered
  *    with iotcore.setWlanSender, before any UART is opened). It blocks for the
  *    whole HTTP exchange and is serialised against the fiber with `locked`:
@@ -345,6 +352,7 @@ namespace iotwifi {
         }
         locked = true
         bootResets = iotwlan.stats(1)
+        const rx0 = iotwlan.stats(9)
         let ok = true
         if (st == WAKING) ok = bringUp()
         if (ok) {
@@ -356,6 +364,9 @@ namespace iotwifi {
                 radioOff = false
             }
             ok = join()
+            // Not a byte back during the whole attempt: unplugged while
+            // joined or asleep. The bring-up waits for it from here on.
+            if (!ok) gone(rx0)
         }
         // A join of a connected module prints WIFI DISCONNECT before the new
         // WIFI CONNECTED; those URCs are history once the join answered.
@@ -372,6 +383,7 @@ namespace iotwifi {
             backoff = BACKOFF_MIN
             missed = 0
             lastCheck = control.millis()
+            iotcore.wlanCameOnline()
             return 200
         }
         nextTry = control.millis() + backoff
@@ -628,10 +640,13 @@ namespace iotwifi {
     }
 
     function checkLink(): void {
+        const rx0 = iotwlan.stats(9)
         const r = readRssi()
         if (r == 0) {
             lose()
         } else if (r < 0) {
+            // Silent: one more short "AT" before calling it unplugged.
+            if (iotwlan.command("AT", 1000) != R_OK && gone(rx0)) return
             missed++
             if (missed >= 2) {
                 st = WAKING
@@ -643,6 +658,23 @@ namespace iotwifi {
         } else {
             missed = 0
         }
+    }
+
+    /**
+     * The module sent not a single byte since `rx0` although commands went
+     * out to it: it lost its power or was unplugged. Back to WAKING, where
+     * the bring-up waits for it with its back-off; a module plugged in again
+     * boots, prints "ready" and is brought up at once (checkReset). An alive
+     * module always answers something (OK, ERROR, "busy p...", a prompt).
+     */
+    function gone(rx0: number): boolean {
+        if (iotwlan.stats(9) != rx0) return false
+        st = WAKING
+        lastErr = "no-module"
+        backoff = BACKOFF_MIN
+        nextTry = control.millis() + BACKOFF_MIN
+        missed = 0
+        return true
     }
 
     /**
@@ -697,6 +729,10 @@ namespace iotwifi {
             while (!isOnline() && control.millis() - t < WAKE_MS) basic.pause(50)
         }
         if (st != ONLINE) {
+            // A value waits: try to (re)connect now instead of after the
+            // back-off (a module plugged in again, a network back in range).
+            // The core resends as soon as the client is online.
+            if (st != OFF && nextTry > control.millis()) nextTry = control.millis()
             a.error = "offline"
             return a
         }
@@ -728,6 +764,7 @@ namespace iotwifi {
             return a
         }
         const r0 = iotwlan.stats(1)
+        const rx0 = iotwlan.stats(9)
         const answered = cmd.length > 0 ? postHttpc(cmd, body, a) : postRaw(u, req, a)
         locked = false
         const reset = iotwlan.stats(1) != r0
@@ -736,6 +773,7 @@ namespace iotwifi {
         if (!a.ok && !answered) {
             if (reset) a.error = "reset"
             else if (st != ONLINE) a.error = "wifi"
+            else if (gone(rx0)) a.error = "no-module"
         }
         return a
     }

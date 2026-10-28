@@ -14,33 +14,39 @@ on them instead.
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_connect` | `iot.connect(ssid, password, token, server?, tx?, rx?)` | `connect\|WiFi SSID $ssid\|password $password\|IoT token $token\|\|server $server\|TX $tx\|RX $rx` | `verbinde\|WLAN SSID $ssid\|Passwort $password\|IoT Token $token\|\|Server $server\|TX $tx\|RX $rx` | Since v0.3.0 the one connection block: one row per input (`inlineInputMode=external`), server and pins behind "+". Sets the dashboard (token = reference: slug or token, empty = Campus picks), then, with a non-empty SSID, starts WiFi and **waits** until the module is in the network: WiFi symbol building up on the LEDs, then a check mark (online) or a cross (`wrong-password`, `ap-not-found`, `no-module`, `uart-*`, mini 1/2, or 30 s passed), shown for 1 s, then the screen is cleared. The module keeps trying after a timeout. Empty SSID: Campus path, no waiting, no animation. The simulator plays one round of the animation and the check mark. |
-| `iot_wifi_connect` | `iot.connectWifi(ssid, password, tx?, rx?)` | `connect to WiFi $ssid password $password \|\| TX $tx RX $rx` | `mit WLAN $ssid Passwort $password verbinden \|\| TX $tx RX $rx` | **Hidden since v0.3.0** (kept so old programs open as blocks; `iot_connect` replaces both). Non-blocking. Opens the module UART after the 5 s cold-boot rule. Pins default C17/C16 (Grove A1), hidden behind "+". Its presence switches the program to WLAN. Campus fills ssid/password from the room settings (only into a completely empty block). |
+| `iot_connect` | `iot.connect(ssid, password, token, server?, tx?, rx?)` | `connect\|WiFi SSID $ssid\|password $password\|IoT token $token\|\|server $server\|TX $tx\|RX $rx` | `verbinde\|WiFi SSID $ssid\|Passwort $password\|IoT Token $token\|\|Server $server\|TX $tx\|RX $rx` | Since v0.3.0 the one connection block: one row per input (`inlineInputMode=external`), server and pins behind "+". Sets the dashboard (token = reference: slug or token, empty = Campus picks), then, with a non-empty SSID, starts WiFi and **waits** until the module is in the network: WiFi symbol building up on the LEDs, then a check mark (online) or a cross (`wrong-password`, `ap-not-found`, `no-module`, `uart-*`, mini 1/2, or 30 s passed), shown for 1 s, then the screen is cleared. The module keeps trying after a timeout. Empty SSID: Campus path, no waiting, no animation. The simulator plays one round of the animation and the check mark. |
+| `iot_wifi_connect` | `iot.connectWifi(ssid, password, tx?, rx?)` | `connect to WiFi $ssid password $password \|\| TX $tx RX $rx` | `mit WiFi $ssid Passwort $password verbinden \|\| TX $tx RX $rx` | **Hidden since v0.3.0** (kept so old programs open as blocks; `iot_connect` replaces both). Non-blocking. Opens the module UART after the 5 s cold-boot rule. Pins default C17/C16 (Grove A1), hidden behind "+". Its presence switches the program to WLAN. Campus fills ssid/password from the room settings (only into a completely empty block). |
 | `iot_dashboard` | `iot.connectDashboard(reference, server?)` | `connect to dashboard $reference \|\| server $server` | `mit Dashboard $reference verbinden \|\| Server $server` | **Hidden since v0.3.0.** Campus writes reference and server only when a dashboard is picked in the chip. Default server: `https://campus-api.calliope.cc`. |
-| `iot_sync` | `iot.syncEvery(interval: IotSync, mode?: IotSyncMode)` | `sync with dashboard every $interval \|\| $mode` | `mit Dashboard abgleichen $interval \|\| $mode` | WLAN only. In "more" (`advanced=true`) since v0.3.0. At most one request per interval (it carries the collected values and brings the dashboard's new values back). `IotSync`: 2 s / 5 s / 10 s / minute / 10 minutes / hour (de labels carry the article: alle 2 Sekunden … jede Minute … jede Stunde). Without the block: 2 s. `IotSyncMode` behind "+": send and receive (default) / only send (no requests that only ask). From a minute on the module sleeps between syncs. See D3. |
-| `iot_sleep` | `iot.sleepWifi()` | `put WiFi module to sleep` | `WLAN-Modul schlafen legen` | In "more" since v0.3.0. Radio off (AT+CWQAP, AT+CWMODE=0); the module stays reachable on its UART. The next value wakes it (radio on, join: a few seconds) and goes; until then no request goes out just to ask. Status `sleeping`. No deep sleep: waking from it early needs the module's reset line, which the Grove cable does not carry. |
+| `iot_sync` | `iot.syncEvery(interval: IotSync, mode?: IotSyncMode)` | `sync with IoT project every $interval \|\| $mode` | `mit IoT-Projekt abgleichen $interval \|\| $mode` | WLAN only. In "more" (`advanced=true`) since v0.3.0. At most one request per interval (it carries the collected values and brings the dashboard's new values back). `IotSync`: 2 s / 5 s / 10 s / minute / 10 minutes / hour (de labels carry the article: alle 2 Sekunden … jede Minute … jede Stunde). Without the block: 2 s. `IotSyncMode` behind "+": send and receive (default) / only send (no requests that only ask). From a minute on the module sleeps between syncs. See D3. |
+| `iot_sleep` | `iot.sleepWifi()` | `put WiFi module to sleep` | `WiFi-Modul schlafen legen` | In "more" since v0.3.0. Radio off (AT+CWQAP, AT+CWMODE=0); the module stays reachable on its UART. The next value wakes it (radio on, join: a few seconds) and goes; until then no request goes out just to ask. Status `sleeping`. No deep sleep: waking from it early needs the module's reset line, which the Grove cable does not carry. |
 
 ## Sending
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_send` | `iot.send(feed, value, to?)` | `send number $value to feed $feed` | `sende Zahl $value an Feed $feed` | Queued, sent in the interval. No receiver in the block since v0.3.0 (a value from blocks goes to everyone); `to` stays in code (`iot.target(IotTarget…)` or a device id). The same feed to the same receiver at most once per second: called sooner, the block waits for the rest (a forever loop without a pause otherwise queued ~50 values/s, each a row on the server). Different feeds never wait for each other. Same rule for `send text`. |
-| `iot_send_text` | `iot.sendText(feed, text, to?)` | `send text $text to feed $feed` | `sende Text $text an Feed $feed` | Text capped at 160 bytes. |
+| `iot_send` | `iot.sendNumber(feed, value, to?)` | `send number $value to feed $feed` | `sende Zahl $value an Feed $feed` | Queued, sent in the interval. No receiver in the block since v0.3.0 (a value from blocks goes to everyone); `to` stays in code (`iot.target(IotTarget…)` or a device id). The same feed to the same receiver at most once per second: called sooner, the block waits for the rest (a forever loop without a pause otherwise queued ~50 values/s, each a row on the server). Different feeds never wait for each other. Same rule for `send text`. |
+| `iot_send_text` | `iot.sendText(feed, text, to?)` | `send text $text to feed $feed` | `sende Text $text an Feed $feed` | Text capped at 160 bytes. Under "more", group "Send Text" (de: Text Senden), since v0.4.0. |
 | `iot_send_now` | `iot.sendNow()` | `send now` | `sende jetzt` | Flush without waiting for the interval (still ≥ 1 s on WLAN). **Hidden since v0.1.2** (D3). |
-| `iot_on_sent` | `iot.onSent(feed, handler(feed, value))` | `on $feed sent` | `wenn $feed gesendet` | In "more" (`advanced=true`) since v0.3.0, and without the `to` parameter (the send blocks have no receiver). Fires only after the server confirmed. Empty feed = every feed (the feed field starts empty). |
+| `iot_on_sent` | `iot.onSent(feed, handler(feed, value))` | `on $feed sent` | `wenn $feed gesendet` | **Hidden since v0.4.0** (was in "more" since v0.3.0), and without the `to` parameter (the send blocks have no receiver). Fires only after the server confirmed. Empty feed = every feed (the feed field starts empty). |
 
 ## Receiving
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_on_received` | `iot.onReceived(feed, handler(value))` | `on $value received from feed $feed` | `wenn $value aus Feed $feed empfangen` | Since v0.3.0: every sender, the handler gets only the value. Own values count. Fires only for values to everyone or to this device. |
-| `iot_on_text_received` | `iot.onTextReceived(feed, handler(text))` | `on $text received from feed $feed` | `wenn $text aus Feed $feed empfangen` | as above |
-| `iot_on_number` | `iot.onNumber(feed, from, handler(value, from))` | `on $value received from feed $feed by $from` | `wenn $value aus Feed $feed von $from empfangen` | Under "more" since v0.3.0, without the `to` parameter. `from`: shadow `iot_who`. A "+" for the filter does not work: pxt puts the handler last in the generated call, so the filter cannot be optional. |
-| `iot_on_text` | `iot.onText(feed, from, handler(text, from))` | `on $text received from feed $feed by $from` | `wenn $text aus Feed $feed von $from empfangen` | as above |
-| `iot_read` | `iot.read(feed, from?, to?)` | `read number from feed $feed \|\| from $from to $to` | `lese Zahl aus Feed $feed \|\| von $from an $to` | From the local cache, never the network. Addressee semantics: see D4. |
-| `iot_read_text` | `iot.readText(feed, from?, to?)` | `read text from feed $feed \|\| from $from to $to` | `lese Text aus Feed $feed \|\| von $from an $to` | |
+| `iot_on_received` | `iot.onNumberReceived(feed, handler(value))` | `on $value received from feed $feed` | `wenn $value aus Feed $feed empfangen` | Since v0.3.0: every sender, the handler gets only the value. Own values count. Fires only for values to everyone or to this device. |
+| `iot_on_text_received` | `iot.onTextReceived(feed, handler(text))` | `on $text received from feed $feed` | `wenn $text aus Feed $feed empfangen` | as above. Under "more", group "Receive Text" (de: Text Empfangen), since v0.4.0. |
+| `iot_on_number` | `iot.onNumberReceivedFrom(feed, from, handler(value, from))` | `on $value received from feed $feed by $from` | `wenn $value aus Feed $feed von $from empfangen` | **Hidden since v0.4.0** (was under "more" since v0.3.0), without the `to` parameter. `from`: shadow `iot_who`. A "+" for the filter does not work: pxt puts the handler last in the generated call, so the filter cannot be optional. |
+| `iot_on_text` | `iot.onTextReceivedFrom(feed, from, handler(text, from))` | `on $text received from feed $feed by $from` | `wenn $text aus Feed $feed von $from empfangen` | as above |
+| `iot_read` | `iot.readNumber(feed, from?, to?)` | `read number from feed $feed \|\| from $from to $to` | `lese Zahl aus Feed $feed \|\| von $from an $to` | From the local cache, never the network. Addressee semantics: see D4. |
+| `iot_read_text` | `iot.readText(feed, from?, to?)` | `read text from feed $feed \|\| from $from to $to` | `lese Text aus Feed $feed \|\| von $from an $to` | Under "more", group "Receive Text", since v0.4.0. |
 | `iot_who` (hidden) | `iot.who(w: IotWho)` | `$w` | | all / dashboard / other devices / all but me / only this device |
 | `iot_target` (hidden) | `iot.target(t: IotTarget)` | `$t` | | all / dashboard; for `to` in code only since v0.3.0 |
+
+Names since v0.4.0: every function that means a number or a text says so (`sendNumber`/`sendText`,
+`onNumberReceived`/`onTextReceived`, `readNumber`/`readText`), the sender filter adds `From`
+(`onNumberReceivedFrom`/`onTextReceivedFrom`). The block ids did not change, so saved block programs open
+unchanged; the old names `send`, `onReceived`, `onNumber`, `onText` and `read` stay as deprecated aliases
+(`//% deprecated=true`: no block, not offered in code completion) for programs written as text.
 
 ## Time
 
@@ -58,9 +64,9 @@ on them instead.
 |---|---|---|---|---|
 | `iot_status` | `iot.status(): IotStatus` | `IoT status` | `IoT-Status` | not connected / connected / sending / error / no WiFi module |
 | `iot_status_value` | `iot.statusValue(s)` | `$s` | | for comparisons |
-| `iot_wifi_connected` | `iot.wifiConnected()` | `WiFi connected?` | `WLAN verbunden?` | |
-| `iot_wifi_signal` | `iot.wifiSignal()` | `WiFi signal` | `WLAN-Signal` | RSSI in dBm |
-| `iot_last_error` | `iot.lastError()` | `last error` | `letzter Fehler` | readable German/English text, e.g. "falsches WLAN-Passwort", "WLAN-Modul antwortet nicht – kurz vom Strom trennen" |
+| `iot_wifi_connected` | `iot.wifiConnected()` | `WiFi connected?` | `WiFi verbunden?` | |
+| `iot_wifi_signal` | `iot.wifiSignal()` | `WiFi signal` | `WiFi-Signal` | RSSI in dBm |
+| `iot_last_error` | `iot.lastError()` | `last error` | `letzter Fehler` | readable German/English text, e.g. "falsches WiFi-Passwort", "WiFi-Modul antwortet nicht – kurz vom Strom trennen" |
 | `iot_device_id` | `iot.deviceName()` | `my device name` | `mein Gerätename` | friendly 5-letter name (display only) |
 | `iot_log` | `iot.log(text)` | `log $text` | `protokolliere $text` | on every open pipe |
 
@@ -80,7 +86,7 @@ Since v0.3.0 all diagnosis blocks are under "more" (`//% advanced=true`); `log`,
   fields `tx`, `rx`.
 - `iotfeeds.ts` is no longer generated for programs with this extension (D5); a block with id
   `iot_feed_name` in a project file would collide with the extension's own.
-- Feed names in code are plain literals: `iot.send("temp", 5)` (the shadow compiles to the bare text).
+- Feed names in code are plain literals: `iot.sendNumber("temp", 5)` (the shadow compiles to the bare text).
 - `iotble.ts` keeps working (`iot.setzeZusatzKanal`, `iot.empfangeVonAussen` — may be renamed in P5
   together with Campus).
 
@@ -107,7 +113,7 @@ Since v0.3.0 all diagnosis blocks are under "more" (`//% advanced=true`); `log`,
   program already uses, so a feed the dashboard dropped stays offered as long as the program names it.
   Checked in the local editor (`tools/editor/blockscheck.mjs`, extension as a `file:` dependency, no Campus
   file): 22 blocks, literals and a variable in feed inputs, `on "" sent`; back to JavaScript gives
-  `iot.send("temp", input.temperature())`. Control without the block: `Invalid block definition for type:
+  `iot.sendNumber("temp", input.temperature())`. Control without the block: `Invalid block definition for type:
   iot_feed_name`, empty canvas.
   **The dashboard's feeds in that list:** upstream pxt has no way for a project file to add options to an
   extension's field, so pxt-calliope (not pxt) extends the autocomplete for the key `iotfeed` with names

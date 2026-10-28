@@ -19,8 +19,8 @@ iot.syncEvery(IotSync.EveryHour)
 iot.sleepWifi()
 
 // Send
-iot.send("temperature", input.temperature())
-iot.send("temperature", input.temperature(), iot.target(IotTarget.Dashboard))
+iot.sendNumber("temperature", input.temperature())
+iot.sendNumber("temperature", input.temperature(), iot.target(IotTarget.Dashboard))
 iot.sendText("message", "hello")
 iot.sendText("message", "hello", iot.target(IotTarget.All))
 iot.sendNow()
@@ -29,22 +29,35 @@ iot.onSent("", function (feed: string, value: number) {
 })
 
 // Receive
-iot.onNumber("setpoint", iot.who(IotWho.Dashboard), function (value: number, from: string) {
+iot.onNumberReceivedFrom("setpoint", iot.who(IotWho.Dashboard), function (value: number, from: string) {
     basic.showNumber(value)
 })
-iot.onReceived("setpoint", function (value: number) {
+iot.onNumberReceived("setpoint", function (value: number) {
     basic.showNumber(value)
 })
 iot.onTextReceived("message", function (text: string) {
     basic.showString(text)
 })
-iot.onText("message", iot.who(IotWho.OtherDevices), function (text: string, from: string) {
+iot.onTextReceivedFrom("message", iot.who(IotWho.OtherDevices), function (text: string, from: string) {
     basic.showString(text)
 })
-let n = iot.read("setpoint")
-n += iot.read("setpoint", iot.who(IotWho.AllButMe), iot.who(IotWho.OnlyThisDevice))
+let n = iot.readNumber("setpoint")
+n += iot.readNumber("setpoint", iot.who(IotWho.AllButMe), iot.who(IotWho.OnlyThisDevice))
 let s = iot.readText("message")
 s += iot.readText("message", iot.who(IotWho.All), iot.who(IotWho.Dashboard))
+
+// Old names (deprecated aliases since v0.4.0) still compile
+iot.send("temperature", 1)
+iot.onReceived("setpoint", function (value: number) {
+    basic.showNumber(value)
+})
+iot.onNumber("setpoint", iot.who(IotWho.All), function (value: number, from: string) {
+    basic.showNumber(value)
+})
+iot.onText("message", iot.who(IotWho.All), function (text: string, from: string) {
+    basic.showString(text)
+})
+n += iot.read("setpoint")
 
 // Time
 if (iot.timeKnown()) {

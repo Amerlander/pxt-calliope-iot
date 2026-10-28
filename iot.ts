@@ -31,7 +31,7 @@
 //     percent sign): pxt reads the rest of such a line as annotations.
 
 /**
- * How often the mini syncs with the dashboard over WiFi.
+ * How often the mini syncs with the IoT project over WiFi.
  */
 enum IotSync {
     //% block="2 seconds"
@@ -109,7 +109,7 @@ enum IotStatus {
  * WiFi or through the open Campus tab (USB, Bluetooth).
  */
 //% weight=9 color=#6476fd icon="" block="IoT"
-//% groups='["Connection","Send","Receive","Time","Diagnosis"]'
+//% groups='["Connection","Send","Receive","Send Text","Receive Text","Time","Diagnosis"]'
 namespace iot {
 
     // The program asked for WiFi on a board that cannot do it (mini 1/2,
@@ -282,7 +282,7 @@ namespace iot {
     }
 
     /**
-     * How often the mini syncs with the dashboard over WiFi: at most one
+     * How often the mini syncs with the IoT project over WiFi: at most one
      * request per interval, which carries the collected values and brings the
      * dashboard's new values back. Without this block: every 2 seconds. A value
      * after a quiet spell goes at once. From a minute on, the WiFi module
@@ -292,7 +292,7 @@ namespace iot {
      * @param mode also receive new values, or only send
      */
     //% blockId=iot_sync
-    //% block="sync with dashboard every $interval || $mode"
+    //% block="sync with IoT project every $interval || $mode"
     //% expandableArgumentMode="toggle"
     //% interval.defl=IotSync.Every2Seconds
     //% mode.defl=IotSyncMode.SendAndReceive
@@ -350,6 +350,12 @@ namespace iot {
     // The send blocks show no receiver since v0.3.0: from blocks a value goes
     // to everyone. `to` stays in the code for programs written as text (a
     // device number, or iot.target(...)).
+    //
+    // Names since v0.4.0: every block that means a number or a text says so
+    // (sendNumber/sendText, onNumberReceived/onTextReceived,
+    // readNumber/readText); the sender filter adds "From". The block ids stay
+    // the old ones, so saved block programs open unchanged, and the old
+    // function names stay as deprecated aliases for programs written as text.
     /**
      * Send a number. A single value goes at once; values in quick succession
      * are collected and go together. The same feed goes at most once per
@@ -362,9 +368,17 @@ namespace iot {
     //% block="send number $value to feed $feed"
     //% feed.shadow="iot_feed_name"
     //% group="Send" weight=90 blockGap=8
-    export function send(feed: string, value: number, to?: string): void {
+    export function sendNumber(feed: string, value: number, to?: string): void {
         pace(feed, to)
         iotcore.send(feed, value, to)
+    }
+
+    /**
+     * Old name of sendNumber.
+     */
+    //% deprecated=true
+    export function send(feed: string, value: number, to?: string): void {
+        sendNumber(feed, value, to)
     }
 
     /**
@@ -379,7 +393,8 @@ namespace iot {
     //% blockId=iot_send_text
     //% block="send text $text to feed $feed"
     //% feed.shadow="iot_feed_name"
-    //% group="Send" weight=89 blockGap=8
+    //% advanced=true
+    //% group="Send Text" weight=89 blockGap=8
     export function sendText(feed: string, text: string, to?: string): void {
         pace(feed, to)
         iotcore.sendText(feed, text, to)
@@ -398,6 +413,8 @@ namespace iot {
         iotcore.sendNow()
     }
 
+    // Hidden since v0.4.0 like the receive blocks with a sender filter: the
+    // toolbox keeps to sending and receiving. Still callable from code.
     /**
      * Runs when a value of this program has really arrived: over WiFi when the
      * server confirmed it, through Campus when it left the Calliope.
@@ -408,7 +425,7 @@ namespace iot {
     //% block="on $which sent"
     //% draggableParameters="reporter"
     //% which.shadow="iot_feed_name"
-    //% advanced=true
+    //% blockHidden=true
     //% group="Send" weight=87
     export function onSent(which: string, handler: (feed: string, value: number) => void): void {
         // The feed field starts empty, and empty means "every feed". The
@@ -420,11 +437,13 @@ namespace iot {
 
     // ---- Receive ---------------------------------------------------------
 
-    // Since v0.3.0 the receive blocks come twice: a plain one in the
-    // category (every sender, the handler gets only the value) and one with
-    // the sender filter under "more". A "+" for the filter is not possible:
-    // pxt always puts the handler last in the generated call, so an optional
-    // argument cannot sit between it and the feed. The handlers have no
+    // Since v0.3.0 the receive blocks come twice: a plain one (every sender,
+    // the handler gets only the value) and one with the sender filter, hidden
+    // since v0.4.0. Since v0.4.0 the text blocks sit under "more", in their
+    // own groups "Send Text" and "Receive Text"; numbers stay in the
+    // category. A "+" for the filter is not possible: pxt always puts the
+    // handler last in the generated call, so an optional argument cannot sit
+    // between it and the feed. The handlers have no
     // receiver, like the send blocks. Since v0.3.1 the value's reporter sits
     // in the block text ($value/$text) instead of at the end, where it takes
     // the place of the words "number"/"text".
@@ -440,10 +459,18 @@ namespace iot {
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% group="Receive" weight=81 blockGap=8
-    export function onReceived(feed: string, handler: (value: number) => void): void {
+    export function onNumberReceived(feed: string, handler: (value: number) => void): void {
         iotcore.onNumber(feed, iotcore.WHO_ALL, function (value: number, from: string, to: string) {
             handler(value)
         })
+    }
+
+    /**
+     * Old name of onNumberReceived.
+     */
+    //% deprecated=true
+    export function onReceived(feed: string, handler: (value: number) => void): void {
+        onNumberReceived(feed, handler)
     }
 
     /**
@@ -456,7 +483,8 @@ namespace iot {
     //% block="on $text received from feed $feed"
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
-    //% group="Receive" weight=80 blockGap=8
+    //% advanced=true
+    //% group="Receive Text" weight=80 blockGap=8
     export function onTextReceived(feed: string, handler: (text: string) => void): void {
         iotcore.onText(feed, iotcore.WHO_ALL, function (text: string, from: string, to: string) {
             handler(text)
@@ -476,12 +504,20 @@ namespace iot {
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% source.shadow="iot_who"
-    //% advanced=true
+    //% blockHidden=true
     //% group="Receive" weight=80 blockGap=8
-    export function onNumber(feed: string, source: string, handler: (value: number, from: string) => void): void {
+    export function onNumberReceivedFrom(feed: string, source: string, handler: (value: number, from: string) => void): void {
         iotcore.onNumber(feed, source, function (value: number, from: string, to: string) {
             handler(value, from)
         })
+    }
+
+    /**
+     * Old name of onNumberReceivedFrom.
+     */
+    //% deprecated=true
+    export function onNumber(feed: string, source: string, handler: (value: number, from: string) => void): void {
+        onNumberReceivedFrom(feed, source, handler)
     }
 
     /**
@@ -496,12 +532,20 @@ namespace iot {
     //% draggableParameters="reporter"
     //% feed.shadow="iot_feed_name"
     //% source.shadow="iot_who"
-    //% advanced=true
-    //% group="Receive" weight=79 blockGap=8
-    export function onText(feed: string, source: string, handler: (text: string, from: string) => void): void {
+    //% blockHidden=true
+    //% group="Receive Text" weight=79 blockGap=8
+    export function onTextReceivedFrom(feed: string, source: string, handler: (text: string, from: string) => void): void {
         iotcore.onText(feed, source, function (text: string, from: string, to: string) {
             handler(text, from)
         })
+    }
+
+    /**
+     * Old name of onTextReceivedFrom.
+     */
+    //% deprecated=true
+    export function onText(feed: string, source: string, handler: (text: string, from: string) => void): void {
+        onTextReceivedFrom(feed, source, handler)
     }
 
     /**
@@ -519,8 +563,16 @@ namespace iot {
     //% from.shadow="iot_who"
     //% to.shadow="iot_who"
     //% group="Receive" weight=78 blockGap=8
-    export function read(feed: string, from?: string, to?: string): number {
+    export function readNumber(feed: string, from?: string, to?: string): number {
         return iotcore.read(feed, from, to)
+    }
+
+    /**
+     * Old name of readNumber.
+     */
+    //% deprecated=true
+    export function read(feed: string, from?: string, to?: string): number {
+        return readNumber(feed, from, to)
     }
 
     /**
@@ -536,7 +588,8 @@ namespace iot {
     //% feed.shadow="iot_feed_name"
     //% from.shadow="iot_who"
     //% to.shadow="iot_who"
-    //% group="Receive" weight=77
+    //% advanced=true
+    //% group="Receive Text" weight=77
     export function readText(feed: string, from?: string, to?: string): string {
         return iotcore.readText(feed, from, to)
     }
@@ -559,7 +612,7 @@ namespace iot {
     }
 
     /**
-     * A receiver chosen from a list, for the "to" argument of iot.send and
+     * A receiver chosen from a list, for the "to" argument of iot.sendNumber and
      * iot.sendText in code. Hidden: the send blocks have no receiver.
      * @param t who gets the value
      */
@@ -578,7 +631,7 @@ namespace iot {
     // exist breaks the program: pxt then refuses to open it as blocks. Campus
     // therefore must not define a block with this id (pxt keeps one
     // definition per id, and not the same one everywhere). TD_ID: the block
-    // compiles to the bare text, so the code reads iot.send("temp", 5).
+    // compiles to the bare text, so the code reads iot.sendNumber("temp", 5).
     //% blockId=iot_feed_name
     //% block="$feed"
     //% blockHidden=true shim=TD_ID
@@ -761,7 +814,7 @@ namespace iot {
     //% advanced=true
     //% group="Diagnosis" weight=36 blockGap=8
     export function lastError(): string {
-        if (wifiUnsupported) return "WLAN geht nur mit dem Calliope mini 3"
+        if (wifiUnsupported) return "WiFi geht nur mit dem Calliope mini 3"
         if (iotcore.usesWlan() && !iotwifi.isOnline()) {
             const w = iotwifi.lastError()
             if (w != "") return errorText(w)
@@ -833,20 +886,20 @@ namespace iot {
     function errorText(code: string): string {
         if (code == "") return ""
         // WiFi module and network (iotwifi.lastError)
-        if (code == "no-module" || code == "stuck") return "WLAN-Modul antwortet nicht - kurz vom Strom trennen"
-        if (code == "uart-2") return "WLAN-Modul: falsche Pins"
-        if (code == "uart-3") return "WLAN: zu wenig Speicher"
-        if (code.substr(0, 4) == "uart") return "WLAN-Modul: Anschluss belegt"
-        if (code == "module-reset" || code == "reset") return "WLAN-Modul ist neu gestartet"
-        if (code == "module-busy" || code == "busy") return "WLAN-Modul arbeitet noch"
-        if (code == "wrong-password") return "falsches WLAN-Passwort"
-        if (code == "ap-not-found") return "WLAN nicht gefunden"
-        if (code == "join-timeout") return "WLAN-Anmeldung dauert zu lange"
-        if (code == "join-failed") return "WLAN-Anmeldung fehlgeschlagen"
-        if (code == "wifi-lost" || code == "wifi") return "WLAN-Verbindung verloren"
-        if (code == "offline") return "noch nicht im WLAN"
+        if (code == "no-module" || code == "stuck") return "WiFi-Modul antwortet nicht - kurz vom Strom trennen"
+        if (code == "uart-2") return "WiFi-Modul: falsche Pins"
+        if (code == "uart-3") return "WiFi: zu wenig Speicher"
+        if (code.substr(0, 4) == "uart") return "WiFi-Modul: Anschluss belegt"
+        if (code == "module-reset" || code == "reset") return "WiFi-Modul ist neu gestartet"
+        if (code == "module-busy" || code == "busy") return "WiFi-Modul arbeitet noch"
+        if (code == "wrong-password") return "falsches WiFi-Passwort"
+        if (code == "ap-not-found") return "WiFi nicht gefunden"
+        if (code == "join-timeout") return "WiFi-Anmeldung dauert zu lange"
+        if (code == "join-failed") return "WiFi-Anmeldung fehlgeschlagen"
+        if (code == "wifi-lost" || code == "wifi") return "WiFi-Verbindung verloren"
+        if (code == "offline") return "noch nicht im WiFi"
         // The request (Answer.error)
-        if (code == "tls") return "WLAN-Modul kann kein https"
+        if (code == "tls") return "WiFi-Modul kann kein https"
         if (code == "bad-url") return "falsche Serveradresse"
         if (code == "dns") return "Server nicht gefunden"
         if (code == "connect") return "Server nicht erreichbar"

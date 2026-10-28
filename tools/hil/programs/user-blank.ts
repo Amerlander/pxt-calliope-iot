@@ -5,7 +5,7 @@
 //   hil.py run programs/user-blank.ts --variant v3 --start "=====DIAG=====" --trace-timeout 90
 //
 // The user's program, as Campus/MakeCode generated it:
-iot.onNumber("Licht", iot.who(IotWho.All), function (value, _from) {
+iot.onNumberReceivedFrom("Licht", iot.who(IotWho.All), function (value, _from) {
     if (value == 1) {
         basic.setLedColors(0x00ff00, 0x00ff00, 0x00ff00)
     } else {
@@ -26,7 +26,7 @@ iot.connectWifi("$SSID", "$PW")
 iot.connectDashboard("$REF", "$SERVER")
 iot.syncEvery(IotSync.Every2Seconds)
 basic.forever(function () {
-    iot.send("temperatur", input.temperature(), iot.target(IotTarget.All))
+    iot.sendNumber("temperatur", input.temperature(), iot.target(IotTarget.All))
 })
 
 // Diagnosis.

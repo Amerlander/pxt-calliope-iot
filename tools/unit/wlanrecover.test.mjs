@@ -159,3 +159,109 @@ test("a send that times out after the prompt is followed by filler: the module i
     assert.equal(k.post(k.batch(4), k.ctx()).ok, true);
     assert.equal(k.wifi.recoveryRuns(), 0, "no ladder was needed afterwards");
 });
+
+// ---------------------------------------------------------------------------
+// The module unplugged and plugged in again while the program runs
+// ---------------------------------------------------------------------------
+
+const ONLINE = 3;
+
+/** Unplugged: no power, so not one byte comes back. */
+function unplug(k) {
+    k.net.silence();
+    k.net.joined = null;
+    k.net.link = null;
+}
+
+/** Plugged in again: it boots and, with `ready`, prints "ready" (a lost line without). */
+function plugIn(k, ready = true) {
+    k.net.mode = "";
+    if (ready) k.net.reboot(400);
+    else {
+        k.net.joined = null;
+        k.fake.echo = true;
+    }
+}
+
+test("unplugged while online: the first request that hears nothing goes back to the bring-up, the next say offline at once", () => {
+    const k = wifiRig();
+    assert.equal(k.online(), true);
+    unplug(k);
+    const a = k.post(k.batch(1), k.ctx());
+    assert.deepEqual([a.ok, a.error], [false, "no-module"]);
+    assert.equal(k.wifi.state(), WAKING);
+    assert.equal(k.wifi.lastError(), "no-module");
+    k.run(2000);
+    const t = k.clock.t;
+    const b = k.post(k.batch(2), k.ctx());
+    assert.deepEqual([b.ok, b.error, k.clock.t - t], [false, "offline", 0], "no second 15 s timeout");
+});
+
+test("plugged in again: its ready brings it up and into the network within seconds", () => {
+    const k = wifiRig();
+    assert.equal(k.online(), true);
+    unplug(k);
+    k.post(k.batch(1), k.ctx());
+    k.run(120000); // the bring-up has backed off to 30 s by now
+    assert.equal(k.wifi.state(), WAKING);
+    const joins = k.net.joins.length;
+    plugIn(k);
+    const t = k.clock.t;
+    while (!k.wifi.isOnline() && k.clock.t - t < 60000) k.run(100);
+    assert.ok(k.clock.t - t < 5000, `online after ${k.clock.t - t} ms`);
+    assert.equal(k.net.joins.length, joins + 1, "joined again");
+    assert.equal(k.post(k.batch(2), k.ctx()).ok, true);
+});
+
+test("plugged in again without a ready heard: a value to send makes it try at once, not after the back-off", () => {
+    const k = wifiRig();
+    assert.equal(k.online(), true);
+    unplug(k);
+    k.post(k.batch(1), k.ctx());
+    k.run(120000);
+    plugIn(k, false);
+    k.run(500);
+    assert.equal(k.wifi.state(), WAKING, "nothing told the client yet");
+    assert.equal(k.post(k.batch(2), k.ctx()).error, "offline");
+    const t = k.clock.t;
+    while (!k.wifi.isOnline() && k.clock.t - t < 60000) k.run(100);
+    assert.ok(k.clock.t - t < 8000, `online after ${k.clock.t - t} ms`);
+    assert.equal(k.post(k.batch(3), k.ctx()).ok, true);
+});
+
+test("unplugged while idle: the link check notices it within ~35 s", () => {
+    const k = wifiRig();
+    assert.equal(k.online(), true);
+    const t = k.clock.t;
+    unplug(k);
+    while (k.wifi.state() === ONLINE && k.clock.t - t < 120000) k.run(100);
+    assert.ok(k.clock.t - t <= 35000, `noticed after ${k.clock.t - t} ms`);
+    assert.equal(k.wifi.lastError(), "no-module");
+});
+
+test("unplugged while asleep: the wake-up join hears nothing and goes back to the bring-up", () => {
+    const k = wifiRig();
+    assert.equal(k.online(), true);
+    k.wifi.sleep();
+    unplug(k);
+    const a = k.post(k.batch(1), k.ctx());
+    assert.deepEqual([a.ok, a.error], [false, "offline"]);
+    k.run(5000);
+    assert.equal(k.wifi.state(), WAKING);
+    assert.equal(k.wifi.lastError(), "no-module");
+    plugIn(k);
+    k.run(10000);
+    assert.equal(k.wifi.state(), ONLINE);
+});
+
+test("each time the client reaches the network, it tells the core", () => {
+    const k = wifiRig();
+    assert.equal(k.core.wlanOnlineCount(), 0);
+    assert.equal(k.online(), true);
+    assert.equal(k.core.wlanOnlineCount(), 1);
+    unplug(k);
+    k.post(k.batch(1), k.ctx());
+    plugIn(k);
+    k.run(10000);
+    assert.equal(k.core.wlanOnlineCount(), 2);
+});

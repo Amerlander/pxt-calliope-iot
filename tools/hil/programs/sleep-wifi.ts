@@ -32,22 +32,22 @@ iot.connectDashboard("$REF", "$SERVER")
 line("online=" + iotwifi.waitOnline(60000))
 
 // A: the sleep block
-iot.send("sleep_a", 1)
+iot.sendNumber("sleep_a", 1)
 line("A1 confirmed after " + waitFor(1, 15000) + " ms")
 iot.sleepWifi()
 line("A2 after sleep block (expect wifi=sleeping, status=5)")
 basic.pause(10000)
 line("A3 still asleep after 10 s")
-iot.send("sleep_a", 2)
+iot.sendNumber("sleep_a", 2)
 line("A4 wake+post took " + waitFor(2, 40000) + " ms")
 
 // B: sync every minute -> auto sleep
 iot.syncEvery(IotSync.EveryMinute)
 basic.pause(1500) // the floor
-iot.send("sleep_b", 1)
+iot.sendNumber("sleep_b", 1)
 line("B1 confirmed after " + waitFor(3, 20000) + " ms")
 line("B2 asleep after " + waitState("sleeping", 5000) + " ms")
-iot.send("sleep_b", 2)
+iot.sendNumber("sleep_b", 2)
 line("B3 queued, waiting for the next sync")
 line("B4 next sync took " + waitFor(4, 90000) + " ms")
 line("B5 asleep again after " + waitState("sleeping", 8000) + " ms")

@@ -101,6 +101,19 @@ namespace iotcore {
         return wlanSleepFn;
     }
 
+    // The WLAN client counts here each time it is (back) in the network, for
+    // example after the WiFi module was unplugged and plugged in again. The
+    // core then resends at once instead of sitting out its back-off.
+    let wlanOnlineTimes = 0;
+    /** Called by the WLAN client whenever it reaches the network. */
+    export function wlanCameOnline(): void {
+        wlanOnlineTimes++;
+    }
+    /** How often the WLAN client reached the network since boot. */
+    export function wlanOnlineCount(): number {
+        return wlanOnlineTimes;
+    }
+
     /** Outcome of one transport attempt, plus whatever came back downstream. */
     export class Answer {
         /** The server accepted the batch (`"ok":1`, including `"dup":1`). */

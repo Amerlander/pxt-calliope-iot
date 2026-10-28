@@ -227,6 +227,33 @@ test("retryAfterMs takes precedence over the own back-off", () => {
     assert.equal(r.core.queued(), 0);
 });
 
+test("back in the network (module plugged in again): the waiting batch goes at once, not after the back-off", () => {
+    const r = rig();
+    let up = false;
+    const calls = r.wlan(() => (up ? r.ok() : r.fail("offline")));
+    r.core.send("f", 1);
+    r.run(70000); // the back-off has grown to 30 s
+    const n = calls.length;
+    r.run(2000);
+    assert.equal(calls.length, n, "still backing off");
+    up = true;
+    r.core.wlanCameOnline();
+    r.run(300);
+    assert.equal(calls.length, n + 1, "resent at the next tick");
+    assert.equal(r.core.queued(), 0);
+});
+
+test("back in the network does not cut a server's retry_after short", () => {
+    const r = rig();
+    const calls = r.wlan(() => r.fail("too_fast", { retryAfterMs: 20000 }));
+    r.core.send("f", 1);
+    r.run(500);
+    const n = calls.length;
+    r.core.wlanCameOnline();
+    r.run(5000);
+    assert.equal(calls.length, n, "the server's wait stands");
+});
+
 test("too_fast is pacing: no error state, no back-off, the batch goes after retry_after", () => {
     const r = rig();
     let n = 0;
