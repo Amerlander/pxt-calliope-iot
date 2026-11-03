@@ -50,6 +50,7 @@ s += iot.readText("message", iot.who(IotWho.All), iot.who(IotWho.Dashboard))
 if (iot.timeKnown()) {
     s += iot.time() + iot.date()
     n += iot.hour() + iot.minute() + iot.second() + iot.timestamp()
+    n += iot.timePart(IotTimePart.Hour) + iot.timePart(IotTimePart.Minute) + iot.timePart(IotTimePart.Second)
 }
 
 // Diagnosis

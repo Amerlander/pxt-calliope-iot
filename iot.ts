@@ -87,6 +87,18 @@ enum IotTarget {
 }
 
 /**
+ * Which part of the time of day.
+ */
+enum IotTimePart {
+    //% block="hour"
+    Hour = 0,
+    //% block="minute"
+    Minute = 1,
+    //% block="second"
+    Second = 2
+}
+
+/**
  * State of the IoT connection.
  */
 enum IotStatus {
@@ -125,20 +137,20 @@ namespace iot {
      * waits until the Calliope is in the WiFi network (at most 30 seconds) and
      * shows a WiFi animation meanwhile, then a check mark, or a cross if it
      * did not work. With an empty WiFi name the values go through the open
-     * Campus tab instead, and the token may stay empty too: Campus then takes
-     * the dashboard of the open program.
+     * Campus tab instead, and the IoT project may stay empty too: Campus then
+     * takes the IoT project of the open program.
      * @param ssid name of the WiFi network
      * @param password password of the WiFi network
-     * @param token name or key of the dashboard (as shown in Campus)
+     * @param token the IoT project, chosen from the list Campus offers
      * @param server address of the Campus server
      * @param tx pin the Calliope sends to the WiFi module on
      * @param rx pin the Calliope receives from the WiFi module on
      */
     //% blockId=iot_connect
-    //% block="connect|WiFi SSID $ssid|password $password|IoT token $token||server $server|TX $tx|RX $rx"
+    //% block="connect|WiFi SSID $ssid|password $password|IoT project $token||server $server|TX $tx|RX $rx"
     //% inlineInputMode=external
     //% expandableArgumentMode="toggle"
-    //% token.defl=""
+    //% token.shadow="iot_project"
     //% server.defl="https://campus-api.calliope.cc"
     //% tx.defl=SerialPin.C17 rx.defl=SerialPin.C16
     //% tx.fieldEditor="gridpicker" tx.fieldOptions.columns=3 tx.fieldOptions.tooltips="false"
@@ -257,9 +269,10 @@ namespace iot {
         return e == "no-module" || e == "wrong-password" || e == "ap-not-found" || e.substr(0, 4) == "uart"
     }
 
-    // Frame 0 is dark, 1 the dot, 2 adds the small arc, 3 the big one:
-    //   . # # # .
-    //   # . . . #
+    // Frame 0 is dark, 1 the dot, 2 adds the small arc, 3 the top line
+    // (straight since v0.5.0: the bent arc read as a face):
+    //   # # # # #
+    //   . . . . .
     //   . # # # .
     //   . . . . .
     //   . . # . .
@@ -273,11 +286,7 @@ namespace iot {
             led.plot(2, 2)
             led.plot(3, 2)
         } else {
-            led.plot(0, 1)
-            led.plot(1, 0)
-            led.plot(2, 0)
-            led.plot(3, 0)
-            led.plot(4, 1)
+            for (let x = 0; x < 5; x++) led.plot(x, 0)
         }
     }
 
@@ -608,7 +617,27 @@ namespace iot {
         return feed
     }
 
+    // The IoT project the connect block names: a text field whose list
+    // offers the user's IoT projects by name. The list and the names come
+    // from Calliope Campus (pxt-calliope fieldeditors/iotFeedOptions.ts, key
+    // "iotproject"); the value stays the reference Campus wrote (slug and
+    // tokens), so the code reads iot.connect("", "", "slug:R-...:W-...").
+    // Outside Campus the field is a plain autocomplete text field. TD_ID: the
+    // block compiles to the bare text, like the feed field below.
+    //% blockId=iot_project
+    //% block="$project"
+    //% blockHidden=true shim=TD_ID
+    //% project.fieldEditor="autocomplete" project.fieldOptions.decompileLiterals=true
+    //% project.fieldOptions.key="iotproject"
+    export function _projectField(project: string): string {
+        return project
+    }
+
     // ---- Time ------------------------------------------------------------
+
+    // Since v0.5.0 one block with a list (hour, minute, second) instead of
+    // three; the three stay hidden for the programs that have them. "time
+    // known?" and "unix time" moved to Diagnosis.
 
     /**
      * True once the server has sent the time. Until then a clock should show
@@ -616,7 +645,8 @@ namespace iot {
      */
     //% blockId=iot_time_known
     //% block="time known?"
-    //% group="Time" weight=60 blockGap=8
+    //% advanced=true
+    //% group="Diagnosis" weight=33 blockGap=8
     export function timeKnown(): boolean {
         return iotcore.timeKnown()
     }
@@ -633,10 +663,24 @@ namespace iot {
     }
 
     /**
+     * The hour, minute or second of the time of day, or 0 while the time is unknown.
+     * @param part hour (0 to 23), minute (0 to 59) or second (0 to 59)
+     */
+    //% blockId=iot_time_part
+    //% block="$part"
+    //% group="Time" weight=58 blockGap=8
+    export function timePart(part: IotTimePart): number {
+        if (part == IotTimePart.Minute) return minute()
+        if (part == IotTimePart.Second) return second()
+        return hour()
+    }
+
+    /**
      * The hour (0 to 23), or 0 while the time is unknown.
      */
     //% blockId=iot_hour
     //% block="hour"
+    //% blockHidden=true
     //% group="Time" weight=58 blockGap=8
     export function hour(): number {
         if (!iotcore.timeKnown()) return 0
@@ -648,6 +692,7 @@ namespace iot {
      */
     //% blockId=iot_minute
     //% block="minute"
+    //% blockHidden=true
     //% group="Time" weight=57 blockGap=8
     export function minute(): number {
         if (!iotcore.timeKnown()) return 0
@@ -659,6 +704,7 @@ namespace iot {
      */
     //% blockId=iot_second
     //% block="second"
+    //% blockHidden=true
     //% group="Time" weight=56 blockGap=8
     export function second(): number {
         if (!iotcore.timeKnown()) return 0
@@ -670,7 +716,7 @@ namespace iot {
      */
     //% blockId=iot_date
     //% block="date"
-    //% group="Time" weight=55 blockGap=8
+    //% group="Time" weight=55
     export function date(): string {
         if (!iotcore.timeKnown()) return "--.--.----"
         const days = Math.floor(iotcore.localSeconds() / 86400)
@@ -694,7 +740,8 @@ namespace iot {
      */
     //% blockId=iot_timestamp
     //% block="unix time"
-    //% group="Time" weight=54
+    //% advanced=true
+    //% group="Diagnosis" weight=32 blockGap=8
     export function timestamp(): number {
         return iotcore.unixSeconds()
     }

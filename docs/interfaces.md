@@ -72,3 +72,23 @@ editorWindow.postMessage({ type: "calliope-iot-feeds", feeds: ["temp", "licht"] 
   message: program feeds + dashboard feeds, invalid name dropped).
 - `iotble.ts`: calls `iot.setzeZusatzKanal(fn)` and `iot.empfangeVonAussen(line)` — names may change with P5,
   until then the core exposes them (worker B).
+
+## IoT projects: `calliope-iot-projects` (editor window message, since v0.5.0)
+
+The connect block's project field (`iot_project`, autocomplete key `iotproject`) holds the reference (slug,
+read and write token, `slug:R-…:W-…`). Campus posts the user's IoT projects to the **editor window**:
+
+```js
+editorWindow.postMessage(
+  { type: "calliope-iot-projects", projects: [{ name: "Wetterstation", ref: "akah8btwbypc:R-…:W-…" }] },
+  "*"
+)
+```
+
+- Receiver: pxt-calliope `fieldeditors/iotFeedOptions.ts`, for the key `iotproject` only. With a list, the
+  field shows the name of the project whose slug the value starts with (the slug alone for one it does not
+  know), and a click opens the list instead of a text box; picking a project writes its reference. Without a
+  list (plain MakeCode, older target) the field is the plain autocomplete with the reference as text.
+- Same sender rules as the feeds: one list per sender, the latest replaces it, an empty one removes it, only
+  from the embedding page or a frame inside the editor. At most 200 projects.
+- Sender: Campus (`MakeCode.svelte`, while a program with iot blocks is open).

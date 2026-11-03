@@ -6,7 +6,9 @@ E5 (en + de), E9 (no transport block — WLAN when the WiFi block is in the prog
 
 Shadows: every feed input carries `feed.shadow="iot_feed_name"` — a text field whose list offers the feed
 names already used in the program (pxt "autocomplete", like the datalogger's column field), defined by the
-extension itself (D5). A child can drop a text block or a variable on it. Who/target inputs carry
+extension itself (D5). The connect block's `token` input carries `token.shadow="iot_project"` (since v0.5.0),
+the same kind of field with the key `iotproject`: in Campus its list offers the user's IoT projects by name and
+the field shows the name, while the value stays the reference. A child can drop a text block or a variable on it. Who/target inputs carry
 hidden shadow blocks (`iot_who`, `iot_target`) with dropdowns; a child can drop a text or variable (device id)
 on them instead.
 
@@ -14,7 +16,7 @@ on them instead.
 
 | id | TS | en | de | notes |
 |---|---|---|---|---|
-| `iot_connect` | `iot.connect(ssid, password, token, server?, tx?, rx?)` | `connect\|WiFi SSID $ssid\|password $password\|IoT token $token\|\|server $server\|TX $tx\|RX $rx` | `verbinde\|WiFi SSID $ssid\|Passwort $password\|IoT Token $token\|\|Server $server\|TX $tx\|RX $rx` | Since v0.3.0 the one connection block: one row per input (`inlineInputMode=external`), server and pins behind "+". Sets the dashboard (token = reference: slug or token, empty = Campus picks), then, with a non-empty SSID, starts WiFi and **waits** until the module is in the network: WiFi symbol building up on the LEDs, then a check mark (online) or a cross (`wrong-password`, `ap-not-found`, `no-module`, `uart-*`, mini 1/2, or 30 s passed), shown for 1 s, then the screen is cleared. The module keeps trying after a timeout. Empty SSID: Campus path, no waiting, no animation. The simulator plays one round of the animation and the check mark. |
+| `iot_connect` | `iot.connect(ssid, password, token, server?, tx?, rx?)` | `connect\|WiFi SSID $ssid\|password $password\|IoT project $token\|\|server $server\|TX $tx\|RX $rx` | `verbinde\|WiFi SSID $ssid\|Passwort $password\|IoT-Projekt $token\|\|Server $server\|TX $tx\|RX $rx` | Since v0.3.0 the one connection block: one row per input (`inlineInputMode=external`), server and pins behind "+". Sets the dashboard (token = reference: slug or token, empty = Campus picks), then, with a non-empty SSID, starts WiFi and **waits** until the module is in the network: WiFi symbol building up on the LEDs, then a check mark (online; the symbol's top line is straight since v0.5.0) or a cross (`wrong-password`, `ap-not-found`, `no-module`, `uart-*`, mini 1/2, or 30 s passed), shown for 1 s, then the screen is cleared. The module keeps trying after a timeout. Empty SSID: Campus path, no waiting, no animation. The simulator plays one round of the animation and the check mark. |
 | `iot_wifi_connect` | `iot.connectWifi(ssid, password, tx?, rx?)` | `connect to WiFi $ssid password $password \|\| TX $tx RX $rx` | `mit WiFi $ssid Passwort $password verbinden \|\| TX $tx RX $rx` | **Hidden since v0.3.0** (kept so old programs open as blocks; `iot_connect` replaces both). Non-blocking. Opens the module UART after the 5 s cold-boot rule. Pins default C17/C16 (Grove A1), hidden behind "+". Its presence switches the program to WLAN. Campus fills ssid/password from the room settings (only into a completely empty block). |
 | `iot_dashboard` | `iot.connectDashboard(reference, server?)` | `connect to dashboard $reference \|\| server $server` | `mit Dashboard $reference verbinden \|\| Server $server` | **Hidden since v0.3.0.** Campus writes reference and server only when a dashboard is picked in the chip. Default server: `https://campus-api.calliope.cc`. |
 | `iot_sync` | `iot.syncEvery(interval: IotSync, mode?: IotSyncMode)` | `sync with IoT project every $interval \|\| $mode` | `mit IoT-Projekt abgleichen $interval \|\| $mode` | WLAN only. In "more" (`advanced=true`) since v0.3.0. At most one request per interval (it carries the collected values and brings the dashboard's new values back). `IotSync`: 2 s / 5 s / 10 s / minute / 10 minutes / hour (de labels carry the article: alle 2 Sekunden … jede Minute … jede Stunde). Without the block: 2 s. `IotSyncMode` behind "+": send and receive (default) / only send (no requests that only ask). From a minute on the module sleeps between syncs. See D3. |
@@ -52,11 +54,12 @@ text have to use the new ones.
 
 | id | TS | en | de |
 |---|---|---|---|
-| `iot_time_known` | `iot.timeKnown()` | `time known?` | `Zeit bekannt?` |
 | `iot_time` | `iot.time()` | `time` | `Uhrzeit` (`HH:MM`, `--:--` until known) |
-| `iot_hour` / `iot_minute` / `iot_second` | `iot.hour()` … | `hour` … | `Stunde` / `Minute` / `Sekunde` |
+| `iot_time_part` | `iot.timePart(part: IotTimePart)` | `$part` | hour / minute / second (`Stunde` / `Minute` / `Sekunde`), since v0.5.0 |
+| `iot_hour` / `iot_minute` / `iot_second` | `iot.hour()` … | `hour` … | `Stunde` / `Minute` / `Sekunde`; **hidden since v0.5.0** (`iot_time_part` replaces them) |
 | `iot_date` | `iot.date()` | `date` | `Datum` |
-| `iot_timestamp` | `iot.timestamp()` | `unix time` | `Unix-Zeit` |
+
+`time known?` and `unix time` moved to Diagnosis in v0.5.0.
 
 ## Diagnosis
 
@@ -68,6 +71,8 @@ text have to use the new ones.
 | `iot_wifi_signal` | `iot.wifiSignal()` | `WiFi signal` | `WiFi-Signal` | RSSI in dBm |
 | `iot_last_error` | `iot.lastError()` | `last error` | `letzter Fehler` | readable German/English text, e.g. "falsches WiFi-Passwort", "WiFi-Modul antwortet nicht – kurz vom Strom trennen" |
 | `iot_device_id` | `iot.deviceName()` | `my device name` | `mein Gerätename` | friendly 5-letter name (display only) |
+| `iot_time_known` | `iot.timeKnown()` | `time known?` | `Zeit bekannt?` | in Time until v0.4.0 |
+| `iot_timestamp` | `iot.timestamp()` | `unix time` | `Unix-Zeit` | in Time until v0.4.0 |
 | `iot_log` | `iot.log(text)` | `log $text` | `protokolliere $text` | on every open pipe |
 
 Since v0.3.0 all diagnosis blocks are under "more" (`//% advanced=true`); `log`, module firmware version and module info are hidden (callable from code only).
@@ -78,7 +83,10 @@ Since v0.3.0 all diagnosis blocks are under "more" (`//% advanced=true`); `log`,
 - Program is IoT ⇔ `main.ts` calls any `iot.` function from this list.
 - Since v0.3.0 the toolbox has one connection block, `iot.connect("<ssid>", "<password>", "<token>"[, "<server>"…])`:
   ssid, password, token (the reference), server, in that order. Path is WLAN ⇔ its ssid is not empty.
-  Blocks XML: `iot_connect` inputs `ssid`, `password`, `token`, `server`, fields `tx`, `rx`.
+  Blocks XML: `iot_connect` inputs `ssid`, `password`, `token`, `server`, fields `tx`, `rx`. Since v0.5.0 the
+  `token` input's shadow is `<shadow type="iot_project"><field name="project">…</field></shadow>` (a `text`
+  shadow from an older program still works, it just shows the plain reference). The project list comes from
+  Campus as the message `calliope-iot-projects` (`interfaces.md`).
 - The v0.2 pair stays as hidden blocks, so programs that use it still work and open:
   path is WLAN ⇔ `iot.connectWifi(` is present (E9); `iot.connectDashboard("<ref>"[, "<server>"])`: ref
   first, server second (literals); `iot.connectWifi("<ssid>", "<password>"…)`: ssid first, password second.
