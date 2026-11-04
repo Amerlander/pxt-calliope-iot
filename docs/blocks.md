@@ -79,7 +79,7 @@ Since v0.3.0 all diagnosis blocks are under "more" (`//% advanced=true`); `log`,
 
 ## Campus coupling (P5 checklist input)
 
-- Dependency key `iot`, repo `Amerlander/pxt-calliope-iot` for now (simx key `amerlander/pxt-calliope-iot`), later `calliope-edu/pxt-calliope-iot`: when it moves, change `iotsim.panelKey()`, the targetconfig key and the Campus pin together.
+- Dependency key `iot`, repo `calliope-edu/pxt-calliope-iot` (simx key `calliope-edu/pxt-calliope-iot`; moved from `Amerlander/pxt-calliope-iot` in v0.5.1). If it ever moves again, change `iotsim.panelKey()`, the targetconfig key and the Campus pin together.
 - Program is IoT ⇔ `main.ts` calls any `iot.` function from this list.
 - Since v0.3.0 the toolbox has one connection block, `iot.connect("<ssid>", "<password>", "<token>"[, "<server>"…])`:
   ssid, password, token (the reference), server, in that order. Path is WLAN ⇔ its ssid is not empty.

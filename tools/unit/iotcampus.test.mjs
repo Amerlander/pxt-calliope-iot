@@ -318,7 +318,7 @@ test("simulator: panel launched on the repo key once a dashboard is named, data 
     r.core.setDashboard("demo:R-AAAA:W-BBBB");
     r.core.send("a", 2);
     r.run(6000);
-    assert.deepEqual(r.sim.sent[0], ["amerlander/pxt-calliope-iot", undefined]);
+    assert.deepEqual(r.sim.sent[0], ["calliope-edu/pxt-calliope-iot", undefined]);
     const data = r.sim.sent.slice(1);
     assert.ok(data.every(([ch]) => ch === "iot"));
     assert.deepEqual(data.map(([, l]) => l), [

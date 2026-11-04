@@ -36,7 +36,7 @@ namespace iotsim {
      * "Expected type string but received type undefined").
      */
     export function panelKey(): string {
-        return "amerlander/pxt-calliope-iot"
+        return "calliope-edu/pxt-calliope-iot"
     }
 
     /** The data channel the panel and Campus listen on. */
